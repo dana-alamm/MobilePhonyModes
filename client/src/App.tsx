@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, type SessionUser } from "./api";
 import NotificationBell from "./components/NotificationBell";
+import Messages from "./pages/Messages";
 import Welcome from "./pages/Welcome";
 import Auth from "./pages/Auth";
 import Pricing from "./pages/Pricing";
@@ -59,6 +60,8 @@ export default function App() {
       <Route path="/login" element={user ? <Navigate to={home} replace /> : <Auth mode="login" onAuth={setUser} />} />
       <Route path="/signup/:role" element={user ? <Navigate to={home} replace /> : <Auth mode="signup" onAuth={setUser} />} />
       <Route path="/student" element={shell(<StudentDashboard />, "student")} />
+      <Route path="/student/messages" element={shell(<Messages />, "student")} />
+      <Route path="/student/messages/:inviteId" element={shell(<Messages />, "student")} />
       <Route path="/student/assessment/:track" element={shell(<Assessment />, "student")} />
       <Route path="/student/practice" element={shell(<PracticeInterview />, "student")} />
       <Route path="/student/interview/:stage" element={shell(<OfficialInterview />, "student")} />

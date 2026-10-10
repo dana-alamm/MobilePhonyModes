@@ -203,15 +203,6 @@ export default function StudentDashboard() {
         )}
       </section>
 
-      {s.invites.length > 0 && (
-        <section className="card active">
-          <h2>Interview invitations</h2>
-          {s.invites.map((i) => (
-            <p key={i.id}><strong>{i.company}</strong> invited you to a formal interview <span className="muted">({new Date(i.createdAt).toLocaleDateString()})</span></p>
-          ))}
-        </section>
-      )}
-
       {unlocked && (
         <section className="card">
           <h2><span className="step">05</span>Your profile</h2>

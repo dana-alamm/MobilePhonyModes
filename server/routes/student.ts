@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db, assessmentAttempts, assessments, invites, officialInterviews, payments, practiceSessions, studentProfiles, users } from "../db.js";
+import { db, assessmentAttempts, assessments, invites, messages, officialInterviews, payments, practiceSessions, studentProfiles, users } from "../db.js";
 import {
   HR_PRACTICE, LIMITS, SKILL_GROUPS, assessmentFor, bankOf, isSkill, recommendationsFor, techPracticeFor,
 } from "../content.js";
@@ -294,3 +294,42 @@ export async function requireUnlocked(userId: number, officialTrack: string | nu
   }
   return { ok: true as const };
 }
+
+// ---- Messages (invite chat). Stored in the database; no real-time delivery. ----
+const INTERVIEW_SLOT = "Monday, Oct 12th at 10:00 AM";
+const initialMessage = () =>
+  `Hello! We are impressed by your profile and would like to invite you for a formal interview on ${INTERVIEW_SLOT}. Let us know if this time works for you.`;
+
+studentRouter.get("/invites", async (req, res) => {
+  const rows = await db.select({ id: invites.id, createdAt: invites.createdAt, company: users.name })
+    .from(invites).innerJoin(users, eq(users.id, invites.companyId)).where(eq(invites.studentId, req.user!.id)).orderBy(desc(invites.id));
+  res.json({ invites: rows });
+});
+
+async function ownInvite(userId: number, id: number) {
+  if (!Number.isInteger(id)) return null;
+  const [row] = await db.select({ id: invites.id, company: users.name })
+    .from(invites).innerJoin(users, eq(users.id, invites.companyId))
+    .where(and(eq(invites.id, id), eq(invites.studentId, userId)));
+  return row ?? null;
+}
+
+studentRouter.get("/invites/:id/messages", async (req, res) => {
+  const inv = await ownInvite(req.user!.id, Number(req.params.id));
+  if (!inv) return res.status(404).json({ error: "Conversation not found." });
+  let rows = await db.select().from(messages).where(eq(messages.inviteId, inv.id)).orderBy(asc(messages.id));
+  if (rows.length === 0) {
+    await db.insert(messages).values({ inviteId: inv.id, sender: "company", body: initialMessage() });
+    rows = await db.select().from(messages).where(eq(messages.inviteId, inv.id)).orderBy(asc(messages.id));
+  }
+  res.json({ company: inv.company, messages: rows });
+});
+
+studentRouter.post("/invites/:id/messages", async (req, res) => {
+  const inv = await ownInvite(req.user!.id, Number(req.params.id));
+  if (!inv) return res.status(404).json({ error: "Conversation not found." });
+  const parsed = z.object({ body: z.string().trim().min(1).max(1000) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Message must be 1 to 1000 characters." });
+  const [row] = await db.insert(messages).values({ inviteId: inv.id, sender: "student", body: parsed.data.body }).returning();
+  res.json({ message: row });
+});

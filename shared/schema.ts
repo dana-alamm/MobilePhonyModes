@@ -113,3 +113,12 @@ export const invites = pgTable("invites", {
   message: text("message").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => [uniqueIndex("invites_company_student_uq").on(t.companyId, t.studentId)]);
+
+// Chat messages for an invite conversation (stored in the database; no real-time delivery).
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  inviteId: integer("invite_id").notNull().references(() => invites.id, { onDelete: "cascade" }),
+  sender: text("sender").notNull(), // 'company' | 'student'
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [index("messages_invite_idx").on(t.inviteId)]);
