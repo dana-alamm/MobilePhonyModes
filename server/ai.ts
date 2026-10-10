@@ -3,7 +3,13 @@ import { z } from "zod";
 
 // gemini-1.5-flash and 2.5-flash return 404 for this API key (retired for new users), so current flash models are used.
 // If one is overloaded (503) or unavailable (404), the next is tried.
-export const AI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
+// Override with GEMINI_MODELS (comma-separated, in order of preference).
+const DEFAULT_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
+function loadModels(): string[] {
+  const list = (process.env.GEMINI_MODELS ?? "").split(",").map((m) => m.trim()).filter(Boolean);
+  return list.length ? list : DEFAULT_MODELS;
+}
+export const AI_MODELS = loadModels();
 export const AI_MODEL = AI_MODELS[0];
 
 export interface EvalInput {
@@ -53,11 +59,17 @@ export async function evaluateInterview(input: EvalInput): Promise<EvalResult> {
       try {
         result = await model.generateContent(request, { timeout: 30_000 });
         used = name;
+        if (name !== AI_MODELS[0]) console.warn(`[ai] Evaluation completed with fallback model "${name}" (primary: "${AI_MODELS[0]}").`);
         break;
       } catch (err) {
         lastErr = err;
         const st = (err as { status?: number }).status;
         if (st !== 503 && st !== 404) throw err;
+        const next = AI_MODELS[AI_MODELS.indexOf(name) + 1];
+        console.warn(
+          `[ai] Gemini model "${name}" failed (HTTP ${st}); ` +
+            (next ? `falling back to "${next}".` : "no more fallback models available."),
+        );
       }
     }
     if (!result) throw lastErr;
