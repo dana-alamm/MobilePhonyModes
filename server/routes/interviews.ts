@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db, interviewResponses, officialInterviews } from "../db.js";
 import { HR_OFFICIAL, LIMITS, techOfficialFor } from "../content.js";
 import { requireRole } from "../auth.js";
-import { AI_MODEL, evaluateInterview } from "../ai.js";
+import { evaluateInterview } from "../ai.js";
 import { getProfile, requireUnlocked } from "./student.js";
 
 export const interviewRouter = Router();
@@ -14,7 +14,7 @@ type Interview = typeof officialInterviews.$inferSelect;
 
 const QUESTION_WINDOW_MS = (LIMITS.initiationSeconds + LIMITS.answerSeconds + LIMITS.questionGraceSeconds) * 1000;
 
-// Sends the captured transcript text to OpenAI and stores the result. Failures are stored visibly (no fake fallback feedback).
+// Sends the captured transcript text to Gemini and stores the result. Failures are stored visibly (no fake fallback feedback).
 async function runEvaluation(iv: Interview) {
   const rows = await db.select().from(interviewResponses).where(eq(interviewResponses.interviewId, iv.id)).orderBy(asc(interviewResponses.idx));
   const responses = iv.questions.map((question, i) => {
@@ -31,7 +31,7 @@ async function runEvaluation(iv: Interview) {
   const result = await evaluateInterview({ stage: iv.stage as "hr" | "tech", skill: iv.track, responses });
   if (result.ok) {
     await db.update(officialInterviews).set({
-      score: result.score, summary: result.summary, feedbackType: `ai_${AI_MODEL}`, evalStatus: "done", evalError: null,
+      score: result.score, summary: result.summary, feedbackType: `ai_${result.model}`, evalStatus: "done", evalError: null,
     }).where(eq(officialInterviews.id, iv.id));
   } else {
     await db.update(officialInterviews).set({ evalStatus: "failed", evalError: result.error }).where(eq(officialInterviews.id, iv.id));

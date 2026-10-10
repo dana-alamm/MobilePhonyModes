@@ -182,7 +182,7 @@ export default function StudentDashboard() {
         {!unlocked ? <p className="muted">Unlocks after you pass the assessment.</p> : (
           <>
             <div className="notice">
-              Voice is required. Your answers can be in Arabic, English or both. After the interview, the text of your answers is sent to OpenAI (GPT-4o-mini) for scoring and feedback; no audio or personal details are sent. Each question is read aloud; you have <strong>15 seconds</strong> to start speaking and <strong>60 seconds</strong> to answer. Each question can be repeated once. The HR interview has a strict <strong>10-minute</strong> total limit that does not reset if you refresh.
+              Voice is required. Your answers can be in Arabic, English or both. After the interview, the text of your answers is sent to Google Gemini for scoring and feedback; no audio or personal details are sent. Each question is read aloud; you have <strong>15 seconds</strong> to start speaking and <strong>60 seconds</strong> to answer. Each question can be repeated once. The HR interview has a strict <strong>10-minute</strong> total limit that does not reset if you refresh.
             </div>
             {[{ o: hr, label: "HR interview", locked: false }, { o: tech, label: `Technical interview (${s.officialTrack})`, locked: !hrDone }].map(({ o, label, locked }) => (
               <div key={o.stage} style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>

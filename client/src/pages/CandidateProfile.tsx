@@ -43,7 +43,7 @@ export default function CandidateProfile() {
           {iv.evalStatus === "failed" || iv.evalStatus === "pending"
             ? <p className="muted">AI evaluation is not available for this interview yet.</p>
             : <p>{iv.summary ?? "No summary available."}</p>}
-          <p className="muted">{iv.feedbackType?.startsWith("ai_") ? "AI-generated evaluation (OpenAI GPT-4o-mini) of the candidate's answers." : iv.feedbackType === "sample" ? "Sample data for demonstration." : ""}</p>
+          <p className="muted">{iv.feedbackType?.startsWith("ai_") ? "AI-generated evaluation (Google Gemini) of the candidate's answers." : iv.feedbackType === "sample" ? "Sample data for demonstration." : ""}</p>
         </>
       )}
     </div>
