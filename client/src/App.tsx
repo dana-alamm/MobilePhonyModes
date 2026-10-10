@@ -2,6 +2,7 @@ import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, type SessionUser } from "./api";
+import CompanyBell from "./components/CompanyBell";
 import NotificationBell from "./components/NotificationBell";
 import Messages from "./pages/Messages";
 import Welcome from "./pages/Welcome";
@@ -41,6 +42,7 @@ export default function App() {
           <span className="brand">Mish Senior</span>
           <span className="who">
             {user.role === "student" && <NotificationBell />}
+            {user.role === "company" && subscribed && <CompanyBell />}
             <span>{user.name} · {user.role}</span>
             <button className="ghost small" onClick={logout}>Log out</button>
           </span>
@@ -56,7 +58,7 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={user ? <Navigate to={home} replace /> : <Welcome />} />
+      <Route path="/" element={<Welcome home={user ? home : undefined} />} />
       <Route path="/login" element={user ? <Navigate to={home} replace /> : <Auth mode="login" onAuth={setUser} />} />
       <Route path="/signup/:role" element={user ? <Navigate to={home} replace /> : <Auth mode="signup" onAuth={setUser} />} />
       <Route path="/student" element={shell(<StudentDashboard />, "student")} />

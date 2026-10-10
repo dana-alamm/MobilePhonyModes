@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-export default function Welcome() {
+export default function Welcome({ home }: { home?: string }) {
   return (
     <div className="welcome">
       <div className="welcome-inner">
@@ -25,7 +25,7 @@ export default function Welcome() {
           </Link>
         </div>
         <p className="fine" style={{ marginTop: 28 }}>
-          Already have an account? <Link to="/login">Sign in</Link>
+          {home ? <>You are signed in. <Link to={home}>Continue to your dashboard</Link></> : <>Already have an account? <Link to="/login">Sign in</Link></>}
         </p>
       </div>
     </div>

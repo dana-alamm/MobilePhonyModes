@@ -1,7 +1,7 @@
 import { Router, type NextFunction, type Request, type Response } from "express";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db, assessments, invites, officialInterviews, studentProfiles, users } from "../db.js";
+import { db, assessments, invites, messages, officialInterviews, studentProfiles, users } from "../db.js";
 import { LIMITS, SKILL_GROUPS, isSkill } from "../content.js";
 import { requireRole } from "../auth.js";
 import { publicUser } from "./auth.js";
@@ -135,4 +135,15 @@ companyRouter.post("/candidates/:id/invite", async (req, res) => {
   }
   await db.insert(invites).values({ companyId, studentId: id, message: INVITE_MESSAGE }).onConflictDoNothing();
   res.json({ ok: true });
+});
+
+// Candidate replies to this company's invites, newest first.
+companyRouter.get("/notifications", async (req, res) => {
+  const rows = await db.select({ id: messages.id, body: messages.body, createdAt: messages.createdAt, studentId: invites.studentId, student: users.name })
+    .from(messages)
+    .innerJoin(invites, eq(invites.id, messages.inviteId))
+    .innerJoin(users, eq(users.id, invites.studentId))
+    .where(and(eq(invites.companyId, req.user!.id), eq(messages.sender, "student")))
+    .orderBy(desc(messages.id)).limit(20);
+  res.json({ notifications: rows });
 });
