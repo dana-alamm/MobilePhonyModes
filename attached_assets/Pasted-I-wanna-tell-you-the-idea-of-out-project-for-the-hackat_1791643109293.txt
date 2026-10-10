@@ -1,0 +1,47 @@
+I wanna tell you the idea of out project for the hackathon,
+it is serves the IT graduates specifically, and the companies
+
+the idea came from that most of the IT or Tech graduates are having a hard time finding jobs, and most of them are actually talented but their cv don't even get a chance to be shown by the interviewer because there are a lot of cvs!
+
+so we are trying to help both the companies and the graduates, by doing this:
+the student makes an account at our website, in the process of making an account we collect their names, we collect the main important information and then we ask them whether or not they actually know what their job will be , we are going to allow the user to only put two skills or two majors for an example: UIUX Design, Flutter Developer.
+both approaches if they know exactly what they want or if they don't want, they will take an assessment, 
+if they don't know their exact majors then the AI asks general questions and then give the scores out of ten in the fields the person was asked, 
+but the user is then limited to two
+
+if the person knows what they want, let's say they chose 2 majors then we ask them in the assesment questions about those 2 roles and then we tell them the scores of both and we tell them that actually flutter scored 8/10 , uiux scored 6/10, then you are a flutter developer!
+and then we move to the second phase which are the interviews, we give him 2 test interviews they are for free, hr and technical,  note: they are timed.
+note: if the person did bad in the assessment, they did beloow 45% then they failed and they are not dirrected to the test interviews, and here they are given suggestions to take courses from udemy to make themselves better.
+after that if they want more they can pay 1jd for each interview package (hr+tech) those are just test,  they are training them to get into the actual interview led by the ai 
+after the tests interviews, there is an actual hr mock interview by the ai, it is voice chat, timed, the user only has 5 seconds to start answering after the question was asked.
+note(we need to make it not keep repeting if the user asked to repeat the question cause they didn't understand cause that would make the user get time to google the thing and then answer it)
+after the hr interview they are moved to the tech interview in the highest score role they got.
+
+the questions are so tailored to the role and not broad.
+these 2 interviews can only be taken once,
+after that they are added and showed on their profiles (the scores of the interviews). we can also make a summary of the interview so it can be shown to the companies, so we need ai to extract the spoken words and turn them into summaries writeen (supports arabic and english, I mean if the user spoke 2 in the same interview)
+here is the end part of the user,
+note: they can retake the interviews after 30 or 60 days.
+
+the companies sign in and they use filtering to get what they need,
+they can specify what skills or what is the role or the position name of the position, so they do: flutter, and then  they can choose what scores they want do they want 6 and above or what?
+
+and then they can view profiles, see the interview summary and then they can choose one to actually get them to the office to interview or remotly it is up to the company, our website job here is done,
+
+here we narrowed down the options for the companies, they don't get to see hundered of cvs, they get to see specific cvs tailored to what they need.
+
+that is out idea,
+what do you think about it? 
+can we do it completely in replit , what about the integrations, what do we need,
+we have credit of 100$ in replit, is that enough for the idea, and is everything we need to do is actually feasable and can be done?
+or is it unrealistic or there are areas for improvments?
+
+wait 
+I now got an idea, 
+we don't need two options, that were:
+if the user have a role in mind they know they are good at or if they don't know we were about to ask them questions to know what role they might be suitable for
+but now, I don't need that
+we need to do this:
+the user can only tell what role they think they are
+
+even if the person assumed to be a flutter developer, the assesment and the interiew will score him as low so the interviewers know it 
