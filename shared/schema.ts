@@ -78,7 +78,7 @@ export const officialInterviews = pgTable("official_interviews", {
   completedAt: timestamp("completed_at"),
   score: integer("score"),
   summary: text("summary"),
-  feedbackType: text("feedback_type"), // ai_<openai model> | none | sample
+  feedbackType: text("feedback_type"), // ai_<gemini model> | none | sample
   evalStatus: text("eval_status"), // pending | done | failed | none
   evalError: text("eval_error"),
 }, (t) => [uniqueIndex("official_user_stage_uq").on(t.userId, t.stage)]);

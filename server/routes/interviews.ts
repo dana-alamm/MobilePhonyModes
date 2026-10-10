@@ -14,7 +14,7 @@ type Interview = typeof officialInterviews.$inferSelect;
 
 const QUESTION_WINDOW_MS = (LIMITS.initiationSeconds + LIMITS.answerSeconds + LIMITS.questionGraceSeconds) * 1000;
 
-// Sends the captured transcript text to OpenAI and stores the result. Failures are stored visibly (no fake fallback feedback).
+// Sends the captured transcript text to Gemini and stores the result. Failures are stored visibly (no fake fallback feedback).
 async function runEvaluation(iv: Interview) {
   const rows = await db.select().from(interviewResponses).where(eq(interviewResponses.interviewId, iv.id)).orderBy(asc(interviewResponses.idx));
   const responses = iv.questions.map((question, i) => {

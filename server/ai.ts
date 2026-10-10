@@ -1,6 +1,7 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 
-export const AI_MODEL = "gpt-4o-mini";
+export const AI_MODEL = "gemini-1.5-flash";
 
 export interface EvalInput {
   stage: "hr" | "tech";
@@ -21,8 +22,8 @@ Return ONLY a JSON object with exactly two keys:
 
 // Only question text and answer transcripts are sent. No name, email or audio.
 export async function evaluateInterview(input: EvalInput): Promise<EvalResult> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) return { ok: false, error: "AI evaluation is unavailable because the OpenAI API key is not configured." };
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return { ok: false, error: "AI evaluation is unavailable because the Gemini API key is not configured." };
 
   const transcript = input.responses
     .map((r, i) => `Q${i + 1}: ${r.question}\nA${i + 1}: ${r.transcript.trim() || "(no answer)"}`)
@@ -30,34 +31,26 @@ export async function evaluateInterview(input: EvalInput): Promise<EvalResult> {
   const prompt = `Interview type: ${input.stage === "hr" ? "HR / behavioral" : "Technical"}\nCandidate skill area: ${input.skill}\n\n${transcript}`;
 
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: prompt }],
-      }),
-      signal: AbortSignal.timeout(30_000),
+    const model = new GoogleGenerativeAI(key).getGenerativeModel({
+      model: AI_MODEL,
+      systemInstruction: SYSTEM_PROMPT,
+      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
     });
-    if (!res.ok) {
-      console.error("OpenAI call failed", res.status);
-      if (res.status === 401 || res.status === 403) return { ok: false, error: "OpenAI rejected the API key." };
-      if (res.status === 429) return { ok: false, error: "OpenAI rate limit or quota reached. Check the account billing." };
-      return { ok: false, error: `The OpenAI request failed (status ${res.status}).` };
-    }
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const content = data.choices?.[0]?.message?.content;
-    if (!content) return { ok: false, error: "OpenAI returned an empty response." };
-    const parsed = resultSchema.safeParse(JSON.parse(content));
-    if (!parsed.success) return { ok: false, error: "OpenAI returned an invalid evaluation format." };
+    const result = await model.generateContent({ contents: [{ role: "user", parts: [{ text: prompt }] }] }, { timeout: 30_000 });
+    const content = result.response.text();
+    if (!content) return { ok: false, error: "Gemini returned an empty response." };
+    const parsed = resultSchema.safeParse(JSON.parse(content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")));
+    if (!parsed.success) return { ok: false, error: "Gemini returned an invalid evaluation format." };
     const summary = parsed.data.summary.split(/(?<=[.!?])\s+/).slice(0, 2).join(" ");
     return { ok: true, score: Math.round(parsed.data.score), summary, model: AI_MODEL };
   } catch (e) {
-    console.error("OpenAI call failed", e instanceof Error ? e.name : "error");
-    if (e instanceof SyntaxError) return { ok: false, error: "OpenAI returned an invalid evaluation format." };
-    if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")) return { ok: false, error: "The OpenAI request timed out." };
+    const status = (e as { status?: number }).status;
+    console.error("Gemini call failed", status ?? (e instanceof Error ? e.name : "error"));
+    if (status === 400 || status === 401 || status === 403) return { ok: false, error: "Gemini rejected the request or API key." };
+    if (status === 404) return { ok: false, error: `Gemini model ${AI_MODEL} is not available for this API key.` };
+    if (status === 429) return { ok: false, error: "Gemini rate limit or quota reached." };
+    if (status === 503) return { ok: false, error: "Gemini is busy right now. Please retry in a moment." };
+    if (e instanceof SyntaxError) return { ok: false, error: "Gemini returned an invalid evaluation format." };
     return { ok: false, error: "The AI evaluation could not be completed." };
   }
 }

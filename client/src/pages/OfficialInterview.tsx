@@ -109,7 +109,7 @@ export default function OfficialInterview() {
           `The ${label} interview has a strict ${minutes}-minute total limit enforced by the server. Refreshing does not reset it.`,
           "Your words are transcribed by your browser's speech recognition. No audio is recorded or stored.",
         ]}
-        notice="After the interview, the text of your answers (spoken transcript or typed text, with the questions) is sent to OpenAI (GPT-4o-mini) to produce your score and feedback. Your name, email and audio are not sent. OpenAI processing may be subject to OpenAI's own data terms."
+        notice="After the interview, the text of your answers (spoken transcript or typed text, with the questions) is sent to Google Gemini to produce your score and feedback. Your name, email and audio are not sent. Gemini processing may be subject to Google's own data terms."
         onReady={begin}
       />
     );
@@ -134,7 +134,7 @@ export default function OfficialInterview() {
           <>
             <div className="score">{state.score ?? 0}/10</div>
             <p>{state.summary}</p>
-            <p className="muted">{ev === "done" ? "AI evaluation by OpenAI (GPT-4o-mini) of your answer text, scoring accuracy and communication." : "No evaluation was produced."} Companies see this score and summary, never your transcripts.</p>
+            <p className="muted">{ev === "done" ? "AI evaluation by Google Gemini of your answer text, scoring accuracy and communication." : "No evaluation was produced."} Companies see this score and summary, never your transcripts.</p>
           </>
         )}
         <button className={ev === "failed" ? "ghost" : ""} onClick={() => navigate("/student")}>Back to dashboard</button>
