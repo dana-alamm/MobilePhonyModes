@@ -1,7 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 
-export const AI_MODEL = "gemini-1.5-flash";
+// gemini-1.5-flash is retired (404 for this key). If a model is overloaded (503) or unavailable (404), the next is tried.
+export const AI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"];
+export const AI_MODEL = AI_MODELS[0];
 
 export interface EvalInput {
   stage: "hr" | "tech";
@@ -31,18 +33,34 @@ export async function evaluateInterview(input: EvalInput): Promise<EvalResult> {
   const prompt = `Interview type: ${input.stage === "hr" ? "HR / behavioral" : "Technical"}\nCandidate skill area: ${input.skill}\n\n${transcript}`;
 
   try {
-    const model = new GoogleGenerativeAI(key).getGenerativeModel({
-      model: AI_MODEL,
-      systemInstruction: SYSTEM_PROMPT,
-      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
-    });
-    const result = await model.generateContent({ contents: [{ role: "user", parts: [{ text: prompt }] }] }, { timeout: 30_000 });
+    const client = new GoogleGenerativeAI(key);
+    const request = { contents: [{ role: "user" as const, parts: [{ text: prompt }] }] };
+    let result;
+    let used = "";
+    let lastErr: unknown;
+    for (const name of AI_MODELS) {
+      const model = client.getGenerativeModel({
+        model: name,
+        systemInstruction: SYSTEM_PROMPT,
+        generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+      });
+      try {
+        result = await model.generateContent(request, { timeout: 30_000 });
+        used = name;
+        break;
+      } catch (err) {
+        lastErr = err;
+        const st = (err as { status?: number }).status;
+        if (st !== 503 && st !== 404) throw err;
+      }
+    }
+    if (!result) throw lastErr;
     const content = result.response.text();
     if (!content) return { ok: false, error: "Gemini returned an empty response." };
     const parsed = resultSchema.safeParse(JSON.parse(content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")));
     if (!parsed.success) return { ok: false, error: "Gemini returned an invalid evaluation format." };
     const summary = parsed.data.summary.split(/(?<=[.!?])\s+/).slice(0, 2).join(" ");
-    return { ok: true, score: Math.round(parsed.data.score), summary, model: AI_MODEL };
+    return { ok: true, score: Math.round(parsed.data.score), summary, model: used };
   } catch (e) {
     const status = (e as { status?: number }).status;
     console.error("Gemini call failed", status ?? (e instanceof Error ? e.name : "error"));
