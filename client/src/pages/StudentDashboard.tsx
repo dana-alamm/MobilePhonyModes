@@ -98,7 +98,7 @@ export default function StudentDashboard() {
         <h2><span className="step">01</span>Choose your specialization (1 or 2)</h2>
         <SkillCombobox selected={picked} onChange={setPicked} disabled={rolesLocked} />
         <p className="muted" style={{ margin: "12px 0" }}>
-          {rolesLocked ? "Skills are locked once you start an assessment." : "You can only choose skills from the list. The assessment and interviews score you honestly, and companies see those scores."}
+          {!rolesLocked && "You can only choose skills from the list. The assessment and interviews score you honestly, and companies see those scores."}
         </p>
         {!rolesLocked && (
           <button disabled={busy || picked.length === 0 || JSON.stringify(picked) === JSON.stringify(s.selectedTracks)} onClick={saveRoles}>Save specialization</button>

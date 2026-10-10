@@ -64,7 +64,7 @@ export default function SkillCombobox({ selected, onChange, max = 2, disabled = 
       <div className="combo">
         <input
           role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list"
-          aria-label="Search specializations" placeholder={full ? "Maximum reached. Remove one to change." : "Search skills, e.g. Flutter, UI, Data…"}
+          aria-label="Search specializations" placeholder="Search skills, e.g. Flutter, UI, Data…"
           value={text} disabled={disabled || full}
           onChange={(e) => { setText(e.target.value); setOpen(true); setActive(0); }}
           onFocus={() => setOpen(true)} onKeyDown={onKey}
