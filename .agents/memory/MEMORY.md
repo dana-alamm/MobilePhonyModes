@@ -1,0 +1,1 @@
+- [Mish Senior decisions](mish-senior.md) — cost-safe spec (no AI/paid APIs), server-enforced timing, honesty labels, how to seed/run
