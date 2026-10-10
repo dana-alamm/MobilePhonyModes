@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, users, studentProfiles } from "../db.js";
 import { clearSession, setSession } from "../auth.js";
-import { isSkill } from "../content.js";
+import { DEFAULT_SKILL, isSkill } from "../content.js";
 
 export const authRouter = Router();
 
@@ -54,7 +54,7 @@ authRouter.post("/register", async (req, res) => {
 
   let skills: string[] = [];
   if (d.role === "student") {
-    skills = [...new Set(d.skills ?? [])];
+    skills = [...new Set(d.skills?.length ? d.skills : [DEFAULT_SKILL])];
     if (skills.length < 1 || skills.length > 2 || !skills.every(isSkill)) {
       return res.status(400).json({ error: "Choose one or two specializations from the list." });
     }

@@ -210,3 +210,6 @@ export const assessmentFor = (skill: string) => ALL_ASSESSMENTS[bankOf(skill)];
 export const techOfficialFor = (skill: string) => ALL_TECH_OFFICIAL[bankOf(skill)];
 export const techPracticeFor = (skill: string) => ALL_TECH_PRACTICE[bankOf(skill)];
 export const recommendationsFor = (skill: string) => ALL_RECS[bankOf(skill)];
+
+// Specialization selection is hidden in the MVP demo; every student is silently assigned this skill.
+export const DEFAULT_SKILL = "Flutter & Dart";

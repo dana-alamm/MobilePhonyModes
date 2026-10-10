@@ -3,7 +3,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, assessmentAttempts, assessments, invites, messages, officialInterviews, payments, practiceSessions, studentProfiles, users } from "../db.js";
 import {
-  HR_PRACTICE, LIMITS, SKILL_GROUPS, assessmentFor, bankOf, isSkill, recommendationsFor, techPracticeFor,
+  DEFAULT_SKILL, HR_PRACTICE, LIMITS, SKILL_GROUPS, assessmentFor, bankOf, isSkill, recommendationsFor, techPracticeFor,
 } from "../content.js";
 import { requireRole } from "../auth.js";
 
@@ -14,8 +14,12 @@ const isTrack = isSkill;
 
 export async function getProfile(userId: number) {
   const [p] = await db.select().from(studentProfiles).where(eq(studentProfiles.userId, userId));
-  if (p) return p;
-  const [created] = await db.insert(studentProfiles).values({ userId }).returning();
+  if (p) {
+    if (p.selectedTracks.length > 0) return p;
+    const [fixed] = await db.update(studentProfiles).set({ selectedTracks: [DEFAULT_SKILL], updatedAt: new Date() }).where(eq(studentProfiles.userId, userId)).returning();
+    return fixed;
+  }
+  const [created] = await db.insert(studentProfiles).values({ userId, selectedTracks: [DEFAULT_SKILL] }).returning();
   return created;
 }
 

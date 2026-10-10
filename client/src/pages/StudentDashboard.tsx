@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
-import SkillCombobox from "../components/SkillCombobox";
 
 interface State {
   selectedTracks: string[];
@@ -26,7 +25,6 @@ const statusBadge = (s: string) =>
 
 export default function StudentDashboard() {
   const [s, setS] = useState<State | null>(null);
-  const [picked, setPicked] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [payOpen, setPayOpen] = useState(false);
   const [payMsg, setPayMsg] = useState("");
@@ -37,14 +35,11 @@ export default function StudentDashboard() {
   const load = useCallback(async () => {
     const st = await api<State>("/student/state");
     setS(st);
-    setPicked(st.selectedTracks);
   }, []);
   useEffect(() => { load().catch((e) => setError(e.message)); }, [load]);
 
   if (!s) return <p className="muted">{error || "Loading…"}</p>;
 
-  const started = s.assessments.some((a) => a.status !== "not_started");
-  const rolesLocked = started;
   const failed = s.allAssessmentsDone && !s.passed;
   const anyRetakeable = s.assessments.some((a) => a.canRetake);
 
@@ -62,15 +57,6 @@ export default function StudentDashboard() {
       await api(`/student/assessments/${encodeURIComponent(track)}/retake`, { body: {} });
       navigate(`/student/assessment/${encodeURIComponent(track)}`);
     } catch (e) { setError((e as Error).message); setBusy(false); }
-  }
-
-  async function saveRoles() {
-    setError("");
-    setBusy(true);
-    try {
-      await api("/student/tracks", { method: "PUT", body: { tracks: picked } });
-      await load();
-    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
 
   async function pay() {
@@ -91,23 +77,10 @@ export default function StudentDashboard() {
 
   return (
     <>
-      <h1>Your journey</h1>
       {error && <div className="notice error">{error}</div>}
 
-      <section className={`card ${!rolesLocked ? "active" : ""}`}>
-        <h2><span className="step">01</span>Choose your specialization (1 or 2)</h2>
-        <SkillCombobox selected={picked} onChange={setPicked} disabled={rolesLocked} />
-        <p className="muted" style={{ margin: "12px 0" }}>
-          {!rolesLocked && "You can only choose skills from the list. The assessment and interviews score you honestly, and companies see those scores."}
-        </p>
-        {!rolesLocked && (
-          <button disabled={busy || picked.length === 0 || JSON.stringify(picked) === JSON.stringify(s.selectedTracks)} onClick={saveRoles}>Save specialization</button>
-        )}
-      </section>
-
       <section className={`card ${s.selectedTracks.length && !s.allAssessmentsDone ? "active" : ""} ${!s.selectedTracks.length ? "locked" : ""}`}>
-        <h2><span className="step">02</span>Assessments (text only, 10 questions, 15 min each)</h2>
-        {!s.selectedTracks.length && <p className="muted">Save your specialization first.</p>}
+        <h2><span className="step">01</span>Assessments (text only, 10 questions, 15 min each)</h2>
         {s.assessments.map((a) => (
           <div key={a.track} className="row between" style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
             <div>
@@ -155,7 +128,7 @@ export default function StudentDashboard() {
       </section>
 
       <section className={`card ${unlocked ? "active" : "locked"}`}>
-        <h2><span className="step">03</span>Practice interviews (voice)</h2>
+        <h2><span className="step">02</span>Practice interviews (voice)</h2>
         {!unlocked ? <p className="muted">Pass your assessment (5/10 or more) to unlock.</p> : (
           <>
             <p>Each practice session = 3 HR + 2 technical questions, answered by voice. Free sessions used: {Math.min(s.practice.used, s.practice.freeLimit)}/{s.practice.freeLimit}. Sessions remaining: <strong className="accent">{s.practice.remaining}</strong>.</p>
@@ -178,7 +151,7 @@ export default function StudentDashboard() {
       </section>
 
       <section className={`card ${unlocked ? "active" : "locked"}`}>
-        <h2><span className="step">04</span>Official voice interviews (one attempt each)</h2>
+        <h2><span className="step">03</span>Official voice interviews (one attempt each)</h2>
         {!unlocked ? <p className="muted">Unlocks after you pass the assessment.</p> : (
           <>
             <div className="notice">
@@ -205,7 +178,7 @@ export default function StudentDashboard() {
 
       {unlocked && (
         <section className="card">
-          <h2><span className="step">05</span>Your profile</h2>
+          <h2><span className="step">04</span>Your profile</h2>
           <dl className="kv">
             <dt>Official skill</dt><dd>{s.officialTrack}</dd>
             <dt>Assessment</dt><dd>{s.assessments.map((a) => `${a.track}: ${a.score}/10`).join(" · ")}</dd>
