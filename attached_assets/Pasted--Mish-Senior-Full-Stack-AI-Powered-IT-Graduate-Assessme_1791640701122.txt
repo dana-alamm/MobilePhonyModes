@@ -1,0 +1,759 @@
+# Mish Senior — Full-Stack AI-Powered IT Graduate Assessment & Recruitment Platform
+
+## 1. Project Overview
+
+Build a functional, full-stack web application called *Mish Senior* that helps IT graduates demonstrate their skills and helps companies discover qualified candidates through structured assessments and voice-based interviews.
+
+The platform connects two types of users:
+
+1. *Students / Candidates:* Graduates who complete assessments, practice interviews, and official voice interviews to build a candidate profile.
+2. *Companies / Recruiters:* Employers who search, filter, and evaluate candidates using their specializations, assessment scores, and interview summaries.
+
+The goal is to build a working recruitment platform, not merely a static UI prototype.
+
+### Non-Negotiable Constraints
+
+* Hackathon duration: 24 hours.
+* Maximum Replit credit budget: $100.
+* Do not purchase external APIs, subscriptions, or third-party services.
+* Do not require paid OpenAI, Whisper, ElevenLabs, or other paid AI or speech services.
+* Use Replit's available built-in services and free browser capabilities wherever possible.
+* Do not integrate real payment processing.
+* Preserve all requirements in this prompt. Do not silently remove features or replace required functionality with a simpler alternative.
+* Prioritize a working end-to-end application and a polished hackathon demo.
+* Clearly distinguish real functionality from simulated functionality.
+
+If a feature depends on unavailable credentials, browser support, or an external AI service, implement the best honest fallback possible without making the entire application dependent on it.
+
+---
+
+## 2. Technology Stack
+
+Use the following stack unless Replit identifies a concrete compatibility issue:
+
+### Frontend
+
+* React
+* Vite
+* TypeScript
+* Responsive CSS or a lightweight styling solution
+
+### Backend
+
+* Node.js
+* Express
+* TypeScript
+
+### Database
+
+* Replit PostgreSQL, using the database provisioned for this project.
+* Drizzle ORM for schema definition, queries, and migrations.
+
+### Authentication
+
+* LinkedIn OAuth for student login when valid LinkedIn credentials are configured.
+* Email and password authentication for company accounts.
+* A clearly labeled demo login mode when LinkedIn OAuth credentials are unavailable.
+
+### Voice Capabilities
+
+* Browser speech synthesis for reading interview questions aloud.
+* Browser speech recognition for capturing spoken answers as text when supported.
+* Microphone access through browser permissions.
+* A clear fallback when speech recognition is unsupported or microphone access is denied.
+
+### AI Capabilities
+
+* Use an existing free AI inference option only if it can be used without payment or a paid subscription, and verify that it is available before integrating it.
+* Do not assume that an API is free just because it offers a free trial.
+* Do not require the user to add a credit card.
+* If no suitable free AI service is available, use a transparent rule-based fallback for question selection and basic feedback.
+* Never claim that an answer was evaluated by AI unless an actual AI evaluation occurred.
+
+Before implementing, inspect the available Replit environment, existing files, and available database configuration. Reuse working infrastructure rather than introducing unnecessary dependencies.
+
+---
+
+## 3. Visual Design and Branding
+
+Create a polished, modern, cyberpunk-inspired recruitment platform.
+
+### Color Palette
+
+* Background: #000000
+* Primary neon green: #36FF14
+* Hover green: #32FF32
+* Borders and secondary accents: #00CC00
+* Main text: #FFFFFF
+* Secondary text: light gray
+
+### Design Requirements
+
+* Dark backgrounds with controlled neon-green accents.
+* Clear typography and readable contrast.
+* Modern cards, panels, tables, badges, and progress indicators.
+* Subtle transitions and hover states.
+* Clean forms and clear validation messages.
+* Responsive layouts for desktop and mobile.
+* A consistent design system across student and company dashboards.
+* A professional interview interface with a visible microphone state, timers, and clear controls.
+
+Avoid excessive glow effects that make the interface difficult to read. The application should feel futuristic but remain professional and usable.
+
+---
+
+## 4. User Roles and Authentication
+
+### A. Student / Candidate Authentication
+
+Students should be able to sign in using LinkedIn OAuth when the required credentials are available.
+
+Implementation requirements:
+
+* Use the supported LinkedIn OAuth flow.
+* Request only the permissions actually available and needed.
+* Store only the profile information LinkedIn legitimately returns.
+* Do not scrape LinkedIn profiles or invent missing profile data.
+* Associate the authenticated LinkedIn identity with the student's internal account.
+
+If LinkedIn credentials are unavailable during development or the hackathon:
+
+* Provide a clearly labeled demo student login.
+* Make the demo mode usable for presentation and testing.
+* Do not display demo authentication as a real LinkedIn integration.
+* Keep the authentication implementation structured so LinkedIn OAuth can be configured later.
+
+### B. Company Authentication
+
+Companies must be able to:
+
+* Register using company name, email, and password.
+* Log in using email and password.
+* Log out securely.
+* Access a company dashboard after successful authentication.
+
+Security requirements:
+
+* Hash passwords using a suitable password-hashing library.
+* Validate inputs on the server.
+* Use secure session or token handling appropriate to the architecture.
+* Protect authenticated routes.
+* Enforce role-based authorization on the backend, not just in the UI.
+* Prevent company accounts from accessing unauthorized student or company data.
+
+---
+
+## 5. Student Journey
+
+Implement the following complete student workflow:
+
+1. Sign in.
+2. Choose up to two specializations.
+3. Complete a separate text-based assessment for each selected specialization.
+4. Determine the official specialization from assessment results.
+5. Enforce the pass/fail rule.
+6. Unlock practice interviews after passing.
+7. Complete voice-based practice interviews.
+8. Complete the official voice interview, including HR and technical stages.
+9. Save results and available transcripts.
+10. Generate an interview performance summary when genuine analysis is available.
+11. Display the completed candidate profile.
+
+Persist progress in the database so refreshing the page does not erase completed assessments or interview records.
+
+---
+
+## 6. Specialization Selection
+
+Allow students to select a maximum of two specializations, for example:
+
+* Flutter Developer
+* UI/UX Designer
+* Frontend Developer
+* Backend Developer
+
+The selected options should determine which assessments and technical interview questions are presented.
+
+Allow students to proceed only with valid selections. Prevent selecting more than two specializations.
+
+---
+
+## 7. Placement Assessments — TEXT ONLY
+
+*Critical distinction: All assessments and tests are text-based. Voice interaction is not required for tests.*
+
+Create timed, role-specific multiple-choice assessments.
+
+### Assessment Requirements
+
+* Each assessment contains 10 questions.
+* Each question has multiple answer options.
+* Students select answers using the interface.
+* Display the question number, progress, answer options, and remaining time.
+* Save answers and assessment results in PostgreSQL.
+* Calculate the score out of 10.
+* Prevent invalid submissions and duplicate score manipulation.
+* Calculate the final result on the server.
+* Do not require a microphone for any assessment.
+
+### Specialization-Specific Questions
+
+Questions must match the selected specialization.
+
+Examples:
+
+* Flutter Developer: Dart, Flutter widgets, state management, asynchronous programming, and mobile development fundamentals.
+* UI/UX Designer: usability, user research, wireframes, visual hierarchy, accessibility, and design principles.
+* Frontend Developer: HTML, CSS, JavaScript, React fundamentals, and browser behavior.
+* Backend Developer: APIs, databases, authentication, server-side concepts, and data validation.
+
+Use a consistent, predefined question bank. If a free AI service is genuinely available, it may help generate additional questions, but the core assessment must not depend on a paid service.
+
+### Assessment Results and Progression
+
+The pass mark is *5/10*.
+
+* Score of 5/10 or higher: the student passes and becomes eligible to unlock the interview stages.
+* Score below 5/10: the student fails the assessment and cannot proceed to the official interview stages.
+
+If the student selects two specializations:
+
+* Store both assessment results.
+* Compare their scores.
+* The specialization with the higher score becomes the official specialization.
+* Use that official specialization for the candidate's primary technical interview and recruitment profile.
+
+Define and implement a deterministic tie-breaking rule, such as allowing the student to choose between tied specializations.
+
+### Failed Assessment Experience
+
+When a student fails:
+
+* Show the score and pass threshold.
+* Display a supportive explanation.
+* Provide relevant learning recommendations resembling a Udemy-style learning recommendation section.
+* Recommendations can be curated learning topics and links; do not claim that paid courses have been purchased or unlocked.
+* Clearly identify the areas the student should review.
+
+Enforce the pass/fail restriction on the backend. Hiding a button in the frontend is not sufficient.
+
+---
+
+## 8. Practice Interviews — Voice-Based
+
+Practice interviews must provide a genuine voice interaction experience. They must not be implemented as text-only questionnaires.
+
+### Free Sessions
+
+Each student receives *two free practice interview sessions*.
+
+Track the number of completed or consumed sessions per student in the database.
+
+### Additional Session
+
+After the two free sessions are used:
+
+* Offer an additional practice interview for a simulated price of 1 JOD.
+* Show a mock payment interface.
+* When the student confirms, record a simulated payment transaction.
+* Display a message such as Payment Successful.
+* Unlock exactly one additional practice session.
+
+This is a demo payment flow only. Do not connect to a real payment gateway or collect real payment details.
+
+Prevent repeated submissions from unlocking multiple sessions for one simulated transaction.
+
+### Voice Interview Interaction
+
+Each practice interview should:
+
+* Display the interview question.
+* Read the question aloud using browser text-to-speech when supported.
+* Allow the student to answer using a microphone.
+* Use browser speech recognition when supported to capture the spoken response as text.
+* Display clear listening, recording, and processing states.
+* Provide controls to start or stop listening and to skip a question.
+* Show a timer and progress through the session.
+* Save questions, available transcripts, timestamps, and session results.
+
+Practice interviews may use a simpler timing policy than the official interview, but they must still function as voice-based sessions.
+
+If the browser cannot support speech recognition, explain the limitation and provide an explicitly labeled fallback. Do not label a typed response as a spoken answer.
+
+---
+
+## 9. Official Interviews — Voice Is Mandatory
+
+*This is a core feature. The official interview MUST be voice-based. Do not replace it with a text chat, written questionnaire, or typed-answer form.*
+
+The official interview has two stages:
+
+1. HR interview.
+2. Technical interview based on the student's official specialization.
+
+### A. HR Interview
+
+The HR stage evaluates the student's ability to introduce themselves, communicate, explain their motivation, and respond to general professional questions.
+
+Requirements:
+
+* Use an interview room designed for spoken interaction.
+* Present each question on screen and read it aloud using text-to-speech when supported.
+* Require the student to answer through their microphone.
+* Do not provide a text field as the primary answer mechanism.
+* Enforce a strict total HR interview limit of *10 minutes*.
+
+### B. Technical Interview
+
+The technical stage uses questions related to the student's official specialization.
+
+Examples:
+
+* Flutter Developer: state management, asynchronous programming, widget lifecycle, architecture, APIs, and practical development decisions.
+* UI/UX Designer: user-centered design, usability decisions, research, design rationale, and accessibility.
+* Frontend Developer: component behavior, browser fundamentals, UI implementation, and debugging.
+* Backend Developer: APIs, data modeling, validation, authentication, and system behavior.
+
+Questions should be relevant and varied. Use a predefined question bank if a free AI service is unavailable.
+
+### C. Strict Question Timing
+
+Implement the following behavior for each official interview question:
+
+1. Present the question and read it aloud where supported.
+2. Start a *15-second response initiation window* after the question is presented.
+3. The student must begin speaking within those 15 seconds or choose to skip.
+4. If the student skips, display: Okay, moving to the next question.
+5. When the student begins speaking, start the answer timer.
+6. The student has a maximum of *60 seconds* for the spoken answer.
+7. When 60 seconds is reached, stop capturing the answer and advance to the next question.
+8. Allow the student to request a repetition of the current question once per question.
+9. Do not allow unlimited question repetitions.
+10. Show clear timer, microphone, listening, and question progress indicators.
+
+The 15-second initiation limit and 60-second answer limit must be enforced through application logic. The UI timer alone is not enough.
+
+### D. HR Total Time Limit
+
+The HR interview must have a strict total duration of 10 minutes.
+
+* Track the start time and deadline on the server.
+* Enforce the deadline on the backend.
+* Stop accepting new answers after the deadline.
+* Do not reset the total HR time when the student refreshes the page.
+* Ensure that the frontend accurately reflects the remaining time.
+* Handle expired sessions consistently.
+
+Do not reset deadlines by navigating away from the interview or reloading the browser.
+
+### E. Browser Voice Support
+
+Use free browser capabilities first:
+
+* Speech synthesis to read questions aloud.
+* Speech recognition to capture spoken answers as text.
+* Microphone access using browser permission APIs.
+
+Before implementation, test actual browser support in the target environment.
+
+Handle these cases clearly:
+
+* Microphone permission denied.
+* Speech recognition unsupported.
+* Speech synthesis unsupported.
+* No speech detected.
+* Browser recognition errors.
+* Network interruptions where relevant.
+* User refreshes or leaves the interview.
+* Interview timer expires.
+
+If a required capability is unavailable, display a clear message and an honest fallback. Do not pretend voice capture or speech recognition succeeded when it did not.
+
+### F. Voice Transcripts and Data Storage
+
+For each official interview, store the available data:
+
+* Interview type and stage.
+* Specialization.
+* Questions presented.
+* Question repetition count.
+* Skip events.
+* Start and end timestamps.
+* Answer duration.
+* Recognized speech transcript, when available.
+* Completion status.
+* Results and feedback.
+
+A browser transcript is not the same as an audio recording. Do not claim to store audio files unless actual audio recording and storage have been implemented.
+
+### G. Interview Performance Summary
+
+After the interview, display a candidate-friendly performance summary.
+
+The summary may include:
+
+* Communication clarity, when it can reasonably be assessed.
+* Relevance of answers.
+* Strengths.
+* Areas for improvement.
+* General recommendations.
+
+If a genuine free AI inference service is available, it may analyze the available transcripts and generate the summary.
+
+If no suitable AI service is available:
+
+* Generate transparent, rule-based feedback from available information.
+* Label it as basic automated feedback, not AI analysis.
+* Do not invent information about the student's answers.
+* If there is insufficient transcript data, explain that a reliable content evaluation could not be generated.
+
+The interview itself must remain voice-based even when AI analysis is unavailable.
+
+---
+
+## 10. Candidate Profile
+
+After completing the required stages, display a candidate profile that consolidates the student's available information.
+
+Include:
+
+* Student name and available profile details.
+* LinkedIn profile information when legitimately available.
+* Official specialization.
+* Results for each completed assessment.
+* Pass/fail status.
+* Practice interview history.
+* Official HR interview status.
+* Official technical interview status.
+* Available interview transcripts.
+* Interview performance summary.
+* Strengths and improvement recommendations when supported by actual data.
+
+Use clear visual indicators and readable score summaries.
+
+Only show information that is available and authorized for the authenticated user or company. Do not invent LinkedIn data or completed interview results.
+
+---
+
+## 11. Company Dashboard
+
+Build a functional recruitment dashboard for company users.
+
+### Dashboard Features
+
+Companies should be able to:
+
+* View available candidate profiles.
+* Search candidates.
+* Filter candidates by official specialization.
+* Filter candidates by minimum assessment score.
+* Sort candidates by assessment results.
+* Open individual candidate profiles.
+* Review assessment scores and pass/fail results.
+* Review official specialization.
+* View available interview summaries and transcripts.
+* Save shortlisted candidates if implemented within the available time.
+* Log out securely.
+
+### Candidate Search and Filtering
+
+Implement search and filtering using real stored database records.
+
+For example, a recruiter should be able to:
+
+1. Select Flutter Developer.
+2. Set a minimum assessment score.
+3. View matching candidates.
+4. Open a candidate profile.
+5. Review the candidate's scores and available interview summary.
+
+Filtering must be functional and not merely decorative UI.
+
+### Data Access and Privacy
+
+* Company accounts must not access unauthorized information.
+* Enforce authorization in backend API routes.
+* Do not expose passwords, session secrets, access tokens, or other sensitive authentication data.
+* Only display student information appropriate for recruitment and authorized by the application's data model.
+
+---
+
+## 12. Database Design
+
+Create and apply the database schema before implementing dependent features.
+
+Use PostgreSQL and Drizzle ORM.
+
+Design appropriate tables and relationships for at least:
+
+### Users
+
+* Internal ID.
+* User role.
+* Name and available profile details.
+* Authentication identifiers.
+* Created and updated timestamps.
+
+### Student Profiles
+
+* User ID.
+* Available LinkedIn profile details.
+* Selected specializations.
+* Official specialization.
+
+### Company Profiles
+
+* User ID.
+* Company name.
+* Company-specific information.
+
+### Assessments
+
+* Assessment ID.
+* Student ID.
+* Specialization.
+* Question set or question references.
+* Student answers.
+* Score.
+* Pass/fail status.
+* Start and completion timestamps.
+
+### Practice Interviews
+
+* Session ID.
+* Student ID.
+* Session type.
+* Question and answer records.
+* Available transcripts.
+* Start and end timestamps.
+* Completion status.
+
+### Mock Payments
+
+* Transaction ID.
+* Student ID.
+* Simulated amount in JOD.
+* Transaction status.
+* Session unlocked.
+* Created timestamp.
+* Idempotency or duplicate-prevention information where appropriate.
+
+### Official Interviews
+
+* Interview ID.
+* Student ID.
+* Interview stage.
+* Specialization.
+* Start time.
+* Server-enforced deadline.
+* Completion status.
+* Results and feedback.
+
+### Interview Responses
+
+* Interview ID.
+* Question reference or question text.
+* Recognized transcript, when available.
+* Start and end timestamps.
+* Answer duration.
+* Skip status.
+* Question repetition count.
+
+### Interview Summaries
+
+* Student ID.
+* Interview ID.
+* Summary content.
+* Feedback type, such as genuine AI-generated or rule-based.
+* Created timestamp.
+
+### Shortlists
+
+* Company ID.
+* Candidate ID.
+* Created timestamp.
+
+Adjust the schema if needed to avoid unnecessary duplication, but preserve the required data and relationships.
+
+Use proper foreign keys, indexes where useful, validation, and database constraints.
+
+Do not store passwords in plain text.
+
+---
+
+## 13. Backend API and Business Logic
+
+Implement real backend endpoints for:
+
+* Authentication and session management.
+* Student profile retrieval and updates.
+* Specialization selection.
+* Assessment retrieval and submission.
+* Server-side score calculation.
+* Pass/fail enforcement.
+* Practice session tracking.
+* Simulated payment processing.
+* Practice interview creation and completion.
+* Official interview session creation.
+* Server-side interview deadlines.
+* Interview response storage.
+* Interview summary retrieval.
+* Company candidate search and filtering.
+* Candidate profile retrieval.
+* Shortlisting, if implemented.
+
+### General Requirements
+
+* Validate request bodies.
+* Handle unauthorized and invalid requests.
+* Return appropriate HTTP status codes.
+* Keep database operations on the backend.
+* Do not trust client-submitted scores or payment status.
+* Do not expose secret keys to frontend code.
+* Prevent users from accessing records that belong to other users without authorization.
+* Provide useful error messages without leaking sensitive internal details.
+
+---
+
+## 14. No-Paid-Service Policy
+
+The entire project must be developed without requiring payment for third-party APIs or subscriptions.
+
+### Allowed
+
+* Replit-provided services available within the current plan and credit allowance.
+* The project's Replit PostgreSQL database, subject to its available limits.
+* Browser speech synthesis and speech recognition where supported.
+* Predefined question banks.
+* Locally implemented timers and application logic.
+* Rule-based feedback and question selection.
+* Simulated payment flows.
+
+### Not Allowed
+
+* Required paid OpenAI API usage.
+* Required paid speech-to-text or text-to-speech APIs.
+* Required paid AI interview services.
+* Real payment gateway integration.
+* Any external service that requires purchasing a subscription to complete the core project.
+
+Before using any service, verify whether it is genuinely available for free without a paid subscription or payment method.
+
+Never put API keys or credentials in client-side code or commit them to Git.
+
+---
+
+## 15. Implementation Plan for the 24-Hour Hackathon
+
+Build incrementally, maintaining a working application throughout development.
+
+### Phase 1 — Foundation
+
+* Inspect the existing project and environment.
+* Set up the frontend and backend.
+* Configure PostgreSQL and Drizzle.
+* Define the schema and apply migrations.
+* Implement basic layouts and routing.
+* Create the authentication structure and demo login fallback.
+
+### Phase 2 — Student Journey
+
+* Implement specialization selection.
+* Build text-only assessments.
+* Add scoring and pass/fail logic.
+* Save results to PostgreSQL.
+* Implement the official specialization rule.
+* Add learning recommendations for failed students.
+
+### Phase 3 — Voice Interviews
+
+* Build the voice interview interface.
+* Integrate browser text-to-speech and speech recognition where supported.
+* Implement practice interview quotas and the simulated payment flow.
+* Implement the HR and technical interview stages.
+* Add the 15-second response initiation window.
+* Add the 60-second answer limit.
+* Add one-repeat-per-question behavior.
+* Enforce the 10-minute HR deadline on the server.
+* Save available transcripts and interview results.
+
+### Phase 4 — Candidate Profiles and Company Dashboard
+
+* Display candidate assessment results and available interview summaries.
+* Implement company registration and login.
+* Implement candidate search, filtering, sorting, and profile views.
+* Add candidate shortlisting if time permits.
+
+### Phase 5 — Feedback and Polish
+
+* Implement genuine AI analysis only if a suitable free service is confirmed.
+* Otherwise provide clearly labeled rule-based feedback.
+* Improve loading, empty, and error states.
+* Test authorization and persistence.
+* Test the full candidate-to-recruiter workflow.
+* Fix critical bugs before adding optional polish.
+
+Do not sacrifice the required voice interview to implement decorative animations or nonessential features.
+
+---
+
+## 16. Required End-to-End Demo
+
+The final application should support this demonstration:
+
+1. A student signs in through configured LinkedIn OAuth or the clearly labeled demo mode.
+2. The student selects one or two specializations.
+3. The student completes text-based assessments.
+4. The system calculates scores and determines the official specialization.
+5. A passing student gains access to practice interviews.
+6. The student completes a voice-based practice interview using the microphone and spoken questions in a supported browser.
+7. After the two free sessions, the student can complete the simulated payment flow to unlock an additional practice session.
+8. The student completes the official voice-based HR interview, subject to the 10-minute total limit.
+9. The student completes the official voice-based technical interview.
+10. The application saves available transcripts and results and displays a performance summary.
+11. A company logs in and searches for candidates by specialization and minimum assessment score.
+12. The company opens a candidate profile and reviews the available results.
+
+This end-to-end flow is the main acceptance test.
+
+---
+
+## 17. Replit Agent Operating Instructions
+
+Follow these instructions throughout implementation:
+
+1. Inspect the current project before making changes.
+2. Explain the implementation plan briefly and identify any unavailable credentials or environment constraints.
+3. Implement the database schema and foundational application structure first.
+4. Continue implementing the complete application in phases rather than stopping after producing a plan.
+5. Do not ask for confirmation after every phase; proceed independently unless an essential decision or user-provided credential is required.
+6. Preserve all requirements in this prompt.
+7. Do not remove voice interviews, the company dashboard, assessments, the mock payment flow, or the pass/fail rules to simplify the project.
+8. Do not add the practical challenge feature; it is explicitly out of scope.
+9. Do not introduce paid APIs or subscriptions.
+10. Clearly label demo authentication, simulated payments, and rule-based feedback.
+11. Test each major flow before moving on.
+12. Fix runtime errors, broken routes, database errors, and critical UI issues before adding optional features.
+13. Keep the application runnable throughout development.
+14. Monitor credit-intensive operations and avoid unnecessary agent loops or expensive services.
+15. At the end, report which features are fully working, which require credentials, which depend on browser support, and which remain incomplete.
+
+## Final Definition of Done
+
+The project is complete only when it has:
+
+* A working React frontend and backend.
+* A persistent PostgreSQL database.
+* Student authentication or a clearly labeled demo fallback.
+* Company email/password authentication.
+* Text-only assessments with role-specific questions and server-calculated results.
+* Correct specialization selection and pass/fail enforcement.
+* Two free practice interviews and one-session simulated payment unlocking.
+* A genuine voice-based official HR and technical interview experience.
+* The required response initiation, answer duration, question repetition, and HR total time limits.
+* Saved interview data and candidate profiles.
+* A functioning company dashboard with candidate search and filtering.
+* No mandatory paid third-party services.
+* Honest handling of AI limitations and unsupported browser capabilities.
+
+*Build the full requested platform within the available time and budget. Prioritize functional completeness, truthful feature behavior, and a reliable demonstration over unnecessary complexity.*
