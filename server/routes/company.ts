@@ -1,11 +1,44 @@
-import { Router } from "express";
-import { eq } from "drizzle-orm";
-import { db, assessments, officialInterviews, studentProfiles, users } from "../db.js";
-import { LIMITS, TRACKS } from "../content.js";
+import { Router, type NextFunction, type Request, type Response } from "express";
+import { and, count, eq } from "drizzle-orm";
+import { z } from "zod";
+import { db, assessments, invites, officialInterviews, studentProfiles, users } from "../db.js";
+import { LIMITS, SKILL_GROUPS, isSkill } from "../content.js";
 import { requireRole } from "../auth.js";
+import { publicUser } from "./auth.js";
 
 export const companyRouter = Router();
 companyRouter.use(requireRole("company"));
+
+// Mock plans. No payment gateway is involved anywhere.
+export const PLANS = [
+  { id: "basic", name: "Basic", priceJod: 10, features: ["Browse verified candidates", "Filter by skill and score", "View assessment scores and interview evaluations", `Up to ${LIMITS.basicInviteLimit} interview invites`] },
+  { id: "premium", name: "Premium", priceJod: 25, features: ["Everything in Basic", "Unlimited interview invites", "Priority access to new candidates"] },
+] as const;
+
+export const INVITE_MESSAGE =
+  "We are impressed by your verified assessment and voice interview results. We would like to schedule a formal interview.";
+
+companyRouter.get("/subscription", (req, res) => {
+  res.json({ user: publicUser(req.user!), plans: PLANS });
+});
+
+companyRouter.post("/subscribe", async (req, res) => {
+  const body = z.object({ plan: z.enum(["basic", "premium"]) }).safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: "Choose a plan." });
+  const [u] = await db.update(users)
+    .set({ subscriptionPlan: body.data.plan, subscriptionStatus: "active", subscribedAt: new Date() })
+    .where(eq(users.id, req.user!.id)).returning();
+  res.json({ ok: true, user: publicUser(u) });
+});
+
+// Everything below requires an active (simulated) subscription.
+function requireSubscription(req: Request, res: Response, next: NextFunction) {
+  if (req.user!.subscriptionStatus !== "active") {
+    return res.status(402).json({ error: "Choose a plan to access candidates.", code: "subscription_required" });
+  }
+  next();
+}
+companyRouter.use(requireSubscription);
 
 async function loadCandidates() {
   const profiles = await db.select().from(studentProfiles);
@@ -23,6 +56,9 @@ async function loadCandidates() {
     if (!official || (official.score ?? 0) < LIMITS.passMark) return [];
     const hr = interviews.find((i) => i.userId === p.userId && i.stage === "hr");
     const tech = interviews.find((i) => i.userId === p.userId && i.stage === "tech");
+    const view = (i: typeof hr) => i ? {
+      status: i.status, score: i.score, summary: i.summary, feedbackType: i.feedbackType, evalStatus: i.evalStatus,
+    } : null;
     return [{
       id: user.id,
       name: user.name,
@@ -30,8 +66,8 @@ async function loadCandidates() {
       officialTrack: p.officialTrack,
       assessmentScore: official.score ?? 0,
       assessments: mine.map((r) => ({ track: r.track, score: r.score, passed: r.passed })),
-      hr: hr ? { status: hr.status, score: hr.score, summary: hr.summary } : null,
-      tech: tech ? { status: tech.status, score: tech.score, summary: tech.summary } : null,
+      hr: view(hr),
+      tech: view(tech),
     }];
   });
 }
@@ -43,7 +79,7 @@ companyRouter.get("/candidates", async (req, res) => {
   const sort = typeof req.query.sort === "string" ? req.query.sort : "score_desc";
 
   let list = await loadCandidates();
-  if (track && (TRACKS as readonly string[]).includes(track)) list = list.filter((c) => c.officialTrack === track);
+  if (track && isSkill(track)) list = list.filter((c) => c.officialTrack === track);
   list = list.filter((c) => c.assessmentScore >= minScore);
   if (q) {
     list = list.filter((c) =>
@@ -57,11 +93,12 @@ companyRouter.get("/candidates", async (req, res) => {
     : sort === "name" ? a.name.localeCompare(b.name)
     : b.assessmentScore - a.assessmentScore);
 
-  // List view omits long summaries.
+  const sent = await db.select({ studentId: invites.studentId }).from(invites).where(eq(invites.companyId, req.user!.id));
   res.json({
-    tracks: TRACKS,
+    skillGroups: SKILL_GROUPS,
     candidates: list.map(({ hr, tech, ...c }) => ({
       ...c,
+      invited: sent.some((s) => s.studentId === c.id),
       hrStatus: hr?.status ?? "not_started",
       techStatus: tech?.status ?? "not_started",
       techScore: tech?.score ?? null,
@@ -69,10 +106,33 @@ companyRouter.get("/candidates", async (req, res) => {
   });
 });
 
+async function inviteState(companyId: number, studentId: number) {
+  const [row] = await db.select({ id: invites.id }).from(invites).where(and(eq(invites.companyId, companyId), eq(invites.studentId, studentId)));
+  return !!row;
+}
+
 companyRouter.get("/candidates/:id", async (req, res) => {
   const id = Number(req.params.id);
   const c = (await loadCandidates()).find((x) => x.id === id);
   if (!c) return res.status(404).json({ error: "Candidate not found." });
   // Transcripts and contact details are intentionally not exposed to companies.
-  res.json({ candidate: c, passMark: LIMITS.passMark });
+  res.json({ candidate: { ...c, invited: await inviteState(req.user!.id, id) }, passMark: LIMITS.passMark, inviteMessage: INVITE_MESSAGE });
+});
+
+// Mock invite: stores a record only. Nothing is emailed or delivered in real time.
+companyRouter.post("/candidates/:id/invite", async (req, res) => {
+  const id = Number(req.params.id);
+  const c = (await loadCandidates()).find((x) => x.id === id);
+  if (!c) return res.status(404).json({ error: "Candidate not found." });
+  const companyId = req.user!.id;
+  if (await inviteState(companyId, id)) return res.json({ ok: true, duplicate: true });
+
+  if (req.user!.subscriptionPlan !== "premium") {
+    const [{ n }] = await db.select({ n: count() }).from(invites).where(eq(invites.companyId, companyId));
+    if (n >= LIMITS.basicInviteLimit) {
+      return res.status(403).json({ error: `The Basic plan includes ${LIMITS.basicInviteLimit} invites. Upgrade to Premium for unlimited invites.` });
+    }
+  }
+  await db.insert(invites).values({ companyId, studentId: id, message: INVITE_MESSAGE }).onConflictDoNothing();
+  res.json({ ok: true });
 });

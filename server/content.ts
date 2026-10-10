@@ -1,12 +1,11 @@
-// Hardcoded question banks and keyword lists. No AI is used anywhere in the platform.
+import {
+  EXTRA_ASSESSMENTS, EXTRA_RECOMMENDATIONS, EXTRA_TECH_OFFICIAL, EXTRA_TECH_PRACTICE,
+} from "./content-extra.js";
 
-export const TRACKS = [
-  "Flutter Developer",
-  "UI/UX Designer",
-  "Frontend Developer",
-  "Backend Developer",
-] as const;
-export type Track = (typeof TRACKS)[number];
+// Hardcoded question banks. Assessments and practice questions are fixed lists (not AI generated).
+// Each selectable skill maps to a question family ("bank"); see bankOf().
+type BaseBank = "Flutter Developer" | "UI/UX Designer" | "Frontend Developer" | "Backend Developer";
+export type Track = string;
 
 export interface McqQuestion {
   q: string;
@@ -14,7 +13,7 @@ export interface McqQuestion {
   answer: number;
 }
 
-export const ASSESSMENTS: Record<Track, McqQuestion[]> = {
+export const ASSESSMENTS: Record<BaseBank, McqQuestion[]> = {
   "Flutter Developer": [
     { q: "Which programming language is used to write Flutter apps?", options: ["Kotlin", "Swift", "Dart", "JavaScript"], answer: 2 },
     { q: "Which widget type can hold mutable state that changes during its lifetime?", options: ["StatelessWidget", "StatefulWidget", "Container", "SizedBox"], answer: 1 },
@@ -79,7 +78,7 @@ export const HR_PRACTICE: string[] = [
   "How do you handle tight deadlines or pressure?",
 ];
 
-export const TECH_OFFICIAL: Record<Track, string[]> = {
+export const TECH_OFFICIAL: Record<BaseBank, string[]> = {
   "Flutter Developer": [
     "Explain the difference between StatelessWidget and StatefulWidget, and when you would use each.",
     "How do you manage state in a Flutter app? Compare setState with a solution like Provider or Bloc.",
@@ -110,7 +109,7 @@ export const TECH_OFFICIAL: Record<Track, string[]> = {
   ],
 };
 
-export const TECH_PRACTICE: Record<Track, string[]> = {
+export const TECH_PRACTICE: Record<BaseBank, string[]> = {
   "Flutter Developer": [
     "What is the widget tree in Flutter?",
     "What does hot reload do and how is it different from hot restart?",
@@ -129,19 +128,7 @@ export const TECH_PRACTICE: Record<Track, string[]> = {
   ],
 };
 
-export const HR_KEYWORDS = [
-  "team", "experience", "project", "learn", "goal", "communicate", "communication",
-  "responsibility", "deadline", "problem", "solution", "collaborate", "motivated", "improve",
-];
-
-export const TRACK_KEYWORDS: Record<Track, string[]> = {
-  "Flutter Developer": ["state", "widget", "dart", "future", "stream", "async", "provider", "bloc", "build", "stateful", "stateless", "api", "lifecycle", "setstate"],
-  "UI/UX Designer": ["research", "user", "wireframe", "prototype", "usability", "accessibility", "contrast", "hierarchy", "persona", "testing", "figma", "journey", "layout", "feedback"],
-  "Frontend Developer": ["react", "component", "state", "dom", "css", "flexbox", "grid", "promise", "async", "hook", "render", "event", "browser", "javascript"],
-  "Backend Developer": ["api", "database", "index", "transaction", "authentication", "token", "validation", "rest", "sql", "status", "cache", "logging", "server", "endpoint"],
-};
-
-export const LEARNING_RECOMMENDATIONS: Record<Track, { title: string; topics: string[]; url: string }[]> = {
+export const LEARNING_RECOMMENDATIONS: Record<BaseBank, { title: string; topics: string[]; url: string }[]> = {
   "Flutter Developer": [
     { title: "Dart Programming fundamentals", topics: ["Dart syntax", "async / await", "Futures and Streams"], url: "https://www.udemy.com/topic/dart/" },
     { title: "Flutter widgets and layouts", topics: ["Stateless vs Stateful widgets", "Column / Row / ListView"], url: "https://www.udemy.com/topic/flutter/" },
@@ -178,4 +165,48 @@ export const LIMITS = {
   questionGraceSeconds: 25,
   maxRepeatsPerQuestion: 1,
   priceJod: 1,
+  basicInviteLimit: 5,
 };
+
+export const SKILL_GROUPS: { group: string; skills: string[] }[] = [
+  { group: "Software & Web Development", skills: ["Frontend Development", "Backend Development", "Full-Stack Development", "React.js", "Angular", "Vue.js", "Node.js", "Python (Django/Flask)", "Java (Spring)", "C# (.NET)", "PHP (Laravel)", "Ruby on Rails", "Go (Golang)", "HTML/CSS/JavaScript"] },
+  { group: "Mobile App Development", skills: ["Mobile App Development", "Flutter & Dart", "React Native", "iOS Development (Swift)", "Android Development (Kotlin)"] },
+  { group: "Data, AI & Machine Learning", skills: ["Data Science", "Machine Learning", "Artificial Intelligence", "Data Analytics", "Business Intelligence", "Deep Learning", "Data Engineering", "SQL", "NoSQL (MongoDB)", "Pandas & NumPy", "TensorFlow & PyTorch"] },
+  { group: "Cloud Computing & DevOps", skills: ["Cloud Engineering", "DevOps", "AWS Solutions Architecture", "Microsoft Azure", "Google Cloud (GCP)", "Docker & Containers", "Kubernetes", "CI/CD Pipelines", "Linux Administration"] },
+  { group: "Cybersecurity & Networking", skills: ["Cybersecurity", "Ethical Hacking", "Penetration Testing", "Network Security", "Information Security", "Cryptography", "Network Administration"] },
+  { group: "UI/UX & Product Design", skills: ["UI/UX Design", "Product Design", "Figma", "Adobe XD", "User Research", "Interaction Design"] },
+  { group: "Systems, QA & Management", skills: ["Quality Assurance (QA) Testing", "Automated Testing", "Systems Architecture", "Systems Analysis", "Software Engineering", "Product Management", "Scrum Master / Agile", "Business Analysis"] },
+];
+export const SKILLS: string[] = SKILL_GROUPS.flatMap((g) => g.skills);
+export const isSkill = (s: string) => SKILLS.includes(s);
+
+const BANK_BY_GROUP: Record<string, string> = {
+  "Mobile App Development": "Mobile Development",
+  "Data, AI & Machine Learning": "Data & AI",
+  "Cloud Computing & DevOps": "Cloud & DevOps",
+  "Cybersecurity & Networking": "Cybersecurity & Networking",
+  "UI/UX & Product Design": "UI/UX Designer",
+  "Software & Web Development": "Backend Developer",
+};
+const FRONTEND = new Set(["Frontend Development", "Full-Stack Development", "React.js", "Angular", "Vue.js", "HTML/CSS/JavaScript"]);
+const QA = new Set(["Quality Assurance (QA) Testing", "Automated Testing"]);
+
+// The question family a skill is assessed with.
+export function bankOf(skill: string): string {
+  const g = SKILL_GROUPS.find((x) => x.skills.includes(skill));
+  if (!g) throw new Error(`Unknown skill: ${skill}`);
+  if (skill === "Flutter & Dart") return "Flutter Developer";
+  if (FRONTEND.has(skill)) return "Frontend Developer";
+  if (g.group === "Systems, QA & Management") return QA.has(skill) ? "QA & Testing" : "Systems & Product";
+  return BANK_BY_GROUP[g.group];
+}
+
+const ALL_ASSESSMENTS: Record<string, McqQuestion[]> = { ...ASSESSMENTS, ...EXTRA_ASSESSMENTS };
+const ALL_TECH_OFFICIAL: Record<string, string[]> = { ...TECH_OFFICIAL, ...EXTRA_TECH_OFFICIAL };
+const ALL_TECH_PRACTICE: Record<string, string[]> = { ...TECH_PRACTICE, ...EXTRA_TECH_PRACTICE };
+const ALL_RECS: Record<string, { title: string; topics: string[]; url: string }[]> = { ...LEARNING_RECOMMENDATIONS, ...EXTRA_RECOMMENDATIONS };
+
+export const assessmentFor = (skill: string) => ALL_ASSESSMENTS[bankOf(skill)];
+export const techOfficialFor = (skill: string) => ALL_TECH_OFFICIAL[bankOf(skill)];
+export const techPracticeFor = (skill: string) => ALL_TECH_PRACTICE[bankOf(skill)];
+export const recommendationsFor = (skill: string) => ALL_RECS[bankOf(skill)];

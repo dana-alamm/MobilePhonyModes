@@ -8,7 +8,7 @@ interface Cand {
 }
 
 export default function CompanyDashboard() {
-  const [tracks, setTracks] = useState<string[]>([]);
+  const [groups, setGroups] = useState<{ group: string; skills: string[] }[]>([]);
   const [list, setList] = useState<Cand[] | null>(null);
   const [track, setTrack] = useState("");
   const [minScore, setMinScore] = useState(5);
@@ -19,8 +19,8 @@ export default function CompanyDashboard() {
 
   useEffect(() => {
     const p = new URLSearchParams({ track, minScore: String(minScore), q, sort });
-    api<{ tracks: string[]; candidates: Cand[] }>(`/company/candidates?${p}`)
-      .then((r) => { setTracks(r.tracks); setList(r.candidates); })
+    api<{ skillGroups: { group: string; skills: string[] }[]; candidates: Cand[] }>(`/company/candidates?${p}`)
+      .then((r) => { setGroups(r.skillGroups); setList(r.candidates); })
       .catch((e) => setError(e.message));
   }, [track, minScore, q, sort]);
 
@@ -30,10 +30,10 @@ export default function CompanyDashboard() {
       <p className="muted">Only graduates who passed their assessment (5/10 or more) are listed.</p>
       <div className="card">
         <div className="grid">
-          <div><label htmlFor="t">Track</label>
+          <div><label htmlFor="t">Skill</label>
             <select id="t" value={track} onChange={(e) => setTrack(e.target.value)}>
-              <option value="">All tracks</option>
-              {tracks.map((t) => <option key={t}>{t}</option>)}
+              <option value="">All skills</option>
+              {groups.map((g) => <optgroup key={g.group} label={g.group}>{g.skills.map((t) => <option key={t}>{t}</option>)}</optgroup>)}
             </select></div>
           <div><label htmlFor="m">Minimum assessment score</label>
             <select id="m" value={minScore} onChange={(e) => setMinScore(Number(e.target.value))}>
@@ -54,7 +54,7 @@ export default function CompanyDashboard() {
       {list && list.length > 0 && (
         <div className="card">
           <table>
-            <thead><tr><th>Name</th><th>Track</th><th>Assessment</th><th>HR</th><th>Technical</th></tr></thead>
+            <thead><tr><th>Name</th><th>Skill</th><th>Assessment</th><th>HR</th><th>Technical</th></tr></thead>
             <tbody>
               {list.map((c) => (
                 <tr key={c.id} className="click" tabIndex={0} onClick={() => navigate(`/company/candidates/${c.id}`)} onKeyDown={(e) => e.key === "Enter" && navigate(`/company/candidates/${c.id}`)}>

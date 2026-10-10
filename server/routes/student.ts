@@ -1,16 +1,16 @@
 import { Router } from "express";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { db, assessments, officialInterviews, payments, practiceSessions, studentProfiles } from "../db.js";
+import { db, assessmentAttempts, assessments, invites, officialInterviews, payments, practiceSessions, studentProfiles, users } from "../db.js";
 import {
-  ASSESSMENTS, HR_PRACTICE, LEARNING_RECOMMENDATIONS, LIMITS, TECH_PRACTICE, TRACKS, type Track,
+  HR_PRACTICE, LIMITS, SKILL_GROUPS, assessmentFor, bankOf, isSkill, recommendationsFor, techPracticeFor,
 } from "../content.js";
 import { requireRole } from "../auth.js";
 
 export const studentRouter = Router();
 studentRouter.use(requireRole("student"));
 
-const isTrack = (t: string): t is Track => (TRACKS as readonly string[]).includes(t);
+const isTrack = isSkill;
 
 export async function getProfile(userId: number) {
   const [p] = await db.select().from(studentProfiles).where(eq(studentProfiles.userId, userId));
@@ -45,6 +45,10 @@ studentRouter.get("/state", async (req, res) => {
   const official = await db.select().from(officialInterviews).where(eq(officialInterviews.userId, userId));
   const sessions = await db.select().from(practiceSessions).where(eq(practiceSessions.userId, userId)).orderBy(desc(practiceSessions.id));
 
+  const inviteRows = await db.select({ id: invites.id, createdAt: invites.createdAt, company: users.name })
+    .from(invites).innerJoin(users, eq(users.id, invites.companyId)).where(eq(invites.studentId, userId)).orderBy(desc(invites.id));
+  const sentInvites = inviteRows.map((i) => ({ id: i.id, company: i.company, createdAt: i.createdAt }));
+
   const assessmentView = profile.selectedTracks.map((track) => {
     const r = rows.find((x) => x.track === track);
     return {
@@ -52,6 +56,10 @@ studentRouter.get("/state", async (req, res) => {
       status: !r ? "not_started" : r.completedAt ? "completed" : "in_progress",
       score: r?.completedAt ? r.score : null,
       passed: r?.completedAt ? r.passed : null,
+      attempts: r?.attempts ?? 0,
+      questionSet: bankOf(track),
+      // Retake is available only after the student confirms they reviewed the materials.
+      canRetake: !!profile.reviewConfirmedAt && !!r?.completedAt && (r.score ?? 0) < LIMITS.passMark,
     };
   });
   const allDone = assessmentView.length > 0 && assessmentView.every((a) => a.status === "completed");
@@ -61,7 +69,9 @@ studentRouter.get("/state", async (req, res) => {
 
   res.json({
     user: { id: userId, name: req.user!.name },
-    tracks: TRACKS,
+    skillGroups: SKILL_GROUPS,
+    reviewConfirmed: !!profile.reviewConfirmedAt,
+    invites: sentInvites,
     selectedTracks: profile.selectedTracks,
     assessments: assessmentView,
     allAssessmentsDone: allDone,
@@ -69,7 +79,7 @@ studentRouter.get("/state", async (req, res) => {
     officialScore: officialRow?.score ?? null,
     passed,
     passMark: LIMITS.passMark,
-    recommendations: allDone && !passed && officialTrack ? LEARNING_RECOMMENDATIONS[officialTrack as Track] : [],
+    recommendations: allDone && !passed && officialTrack ? recommendationsFor(officialTrack) : [],
     practice: {
       ...(await practiceAllowance(userId)),
       priceJod: LIMITS.priceJod,
@@ -83,6 +93,7 @@ studentRouter.get("/state", async (req, res) => {
         score: iv?.score ?? null,
         summary: iv?.summary ?? null,
         feedbackType: iv?.feedbackType ?? null,
+        evalStatus: iv?.evalStatus ?? null,
       };
     }),
   });
@@ -90,13 +101,13 @@ studentRouter.get("/state", async (req, res) => {
 
 studentRouter.put("/tracks", async (req, res) => {
   const body = z.object({ tracks: z.array(z.string()).min(1).max(2) }).safeParse(req.body);
-  if (!body.success) return res.status(400).json({ error: "Choose one or two roles." });
+  if (!body.success) return res.status(400).json({ error: "Choose one or two skills." });
   const tracks = [...new Set(body.data.tracks)];
-  if (!tracks.every(isTrack)) return res.status(400).json({ error: "Unknown role selected." });
+  if (!tracks.every(isTrack)) return res.status(400).json({ error: "Choose skills from the list." });
   const userId = req.user!.id;
   const existing = await db.select().from(assessments).where(eq(assessments.userId, userId));
   if (existing.length > 0) {
-    return res.status(409).json({ error: "Roles are locked once an assessment has been started." });
+    return res.status(409).json({ error: "Skills are locked once an assessment has been started." });
   }
   await getProfile(userId);
   await db.update(studentProfiles).set({ selectedTracks: tracks, officialTrack: null, updatedAt: new Date() }).where(eq(studentProfiles.userId, userId));
@@ -108,12 +119,12 @@ studentRouter.put("/tracks", async (req, res) => {
 studentRouter.post("/assessments/:track/start", async (req, res) => {
   const track = req.params.track;
   const userId = req.user!.id;
-  if (!isTrack(track)) return res.status(404).json({ error: "Unknown role." });
+  if (!isTrack(track)) return res.status(404).json({ error: "Unknown skill." });
   const profile = await getProfile(userId);
-  if (!profile.selectedTracks.includes(track)) return res.status(403).json({ error: "You did not select this role." });
+  if (!profile.selectedTracks.includes(track)) return res.status(403).json({ error: "You did not select this skill." });
 
   let [row] = await db.select().from(assessments).where(and(eq(assessments.userId, userId), eq(assessments.track, track)));
-  if (row?.completedAt) return res.status(409).json({ error: "This assessment is already completed and cannot be retaken." });
+  if (row?.completedAt) return res.status(409).json({ error: "This assessment is already completed and can only be retaken after reviewing the recommended materials." });
   if (!row) {
     [row] = await db.insert(assessments).values({ userId, track }).onConflictDoNothing().returning();
     if (!row) [row] = await db.select().from(assessments).where(and(eq(assessments.userId, userId), eq(assessments.track, track)));
@@ -124,15 +135,16 @@ studentRouter.post("/assessments/:track/start", async (req, res) => {
     startedAt: row.startedAt,
     deadlineAt: deadline,
     serverNow: new Date(),
-    questions: ASSESSMENTS[track].map((q) => ({ q: q.q, options: q.options })),
+    questionSet: bankOf(track),
+    questions: assessmentFor(track).map((q) => ({ q: q.q, options: q.options })),
   });
 });
 
 studentRouter.post("/assessments/:track/submit", async (req, res) => {
   const track = req.params.track;
   const userId = req.user!.id;
-  if (!isTrack(track)) return res.status(404).json({ error: "Unknown role." });
-  const bank = ASSESSMENTS[track];
+  if (!isTrack(track)) return res.status(404).json({ error: "Unknown skill." });
+  const bank = assessmentFor(track);
   const body = z.object({ answers: z.array(z.number().int().min(-1).max(3)).length(bank.length) }).safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: "Submit exactly one answer slot per question." });
 
@@ -147,14 +159,47 @@ studentRouter.post("/assessments/:track/submit", async (req, res) => {
   const passed = score >= LIMITS.passMark;
 
   const updated = await db.update(assessments)
-    .set({ answers: body.data.answers, score, passed, completedAt: new Date() })
+    .set({ answers: body.data.answers, score, passed, completedAt: new Date(), attempts: row.attempts + 1 })
     .where(and(eq(assessments.id, row.id), eq(assessments.userId, userId)))
     .returning();
   if (updated.length === 0) return res.status(409).json({ error: "Already submitted." });
 
+  await db.insert(assessmentAttempts).values({ userId, track, score, passed });
   const official = await resolveOfficialTrack(userId);
-  if (official) await db.update(studentProfiles).set({ officialTrack: official, updatedAt: new Date() }).where(eq(studentProfiles.userId, userId));
+  // The review confirmation is consumed once every assessment has a result again.
+  if (official) await db.update(studentProfiles).set({ officialTrack: official, reviewConfirmedAt: null, updatedAt: new Date() }).where(eq(studentProfiles.userId, userId));
   res.json({ score, total: bank.length, passed, passMark: LIMITS.passMark, late });
+});
+
+// Skill-based retake: confirm review of the recommended materials, then reset the failed assessment.
+studentRouter.post("/review-confirm", async (req, res) => {
+  const userId = req.user!.id;
+  const profile = await getProfile(userId);
+  const official = await resolveOfficialTrack(userId);
+  if (!official) return res.status(409).json({ error: "Finish your assessments first." });
+  const unlocked = await requireUnlocked(userId, official);
+  if (unlocked.ok) return res.status(409).json({ error: "You already passed, so no retake is needed." });
+  if (!profile.reviewConfirmedAt) {
+    await db.update(studentProfiles).set({ reviewConfirmedAt: new Date() }).where(eq(studentProfiles.userId, userId));
+  }
+  res.json({ ok: true });
+});
+
+studentRouter.post("/assessments/:track/retake", async (req, res) => {
+  const track = req.params.track;
+  const userId = req.user!.id;
+  if (!isTrack(track)) return res.status(404).json({ error: "Unknown skill." });
+  const profile = await getProfile(userId);
+  if (!profile.selectedTracks.includes(track)) return res.status(403).json({ error: "You did not select this skill." });
+  if (!profile.reviewConfirmedAt) return res.status(403).json({ error: "Confirm that you reviewed the recommended materials first." });
+  const [row] = await db.select().from(assessments).where(and(eq(assessments.userId, userId), eq(assessments.track, track)));
+  if (!row?.completedAt || (row.score ?? 0) >= LIMITS.passMark) return res.status(409).json({ error: "This assessment does not need a retake." });
+
+  await db.update(assessments)
+    .set({ answers: null, score: null, passed: null, completedAt: null, startedAt: new Date() })
+    .where(and(eq(assessments.id, row.id), eq(assessments.userId, userId)));
+  await db.update(studentProfiles).set({ officialTrack: null, updatedAt: new Date() }).where(eq(studentProfiles.userId, userId));
+  res.json({ ok: true });
 });
 
 // ---------- Practice interviews ----------
@@ -174,8 +219,8 @@ studentRouter.post("/practice/start", async (req, res) => {
   const allowance = await practiceAllowance(userId);
   if (allowance.remaining <= 0) return res.status(402).json({ error: "No practice sessions left. Unlock one more with the simulated payment." });
 
-  const track = profile.officialTrack as Track;
-  const questions = [...HR_PRACTICE, ...TECH_PRACTICE[track]];
+  const track = profile.officialTrack as string;
+  const questions = [...HR_PRACTICE, ...techPracticeFor(track)];
   const [session] = await db.insert(practiceSessions).values({
     userId, track, questions,
     deadlineAt: new Date(Date.now() + LIMITS.practiceMinutes * 60_000),

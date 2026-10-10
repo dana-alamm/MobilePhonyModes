@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { detectCaps, type VoiceCaps } from "./speech";
 
-export default function PreCheck({ title, rules, onReady }: { title: string; rules: string[]; onReady: (caps: VoiceCaps) => void }) {
+export default function PreCheck({ title, rules, notice, onReady }: { title: string; rules: string[]; notice?: string; onReady: (caps: VoiceCaps) => void }) {
   const [lang, setLang] = useState("en-US");
   const [caps, setCaps] = useState<VoiceCaps | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function check() {
     setBusy(true);
-    setCaps(await detectCaps(lang));
+    setCaps(await detectCaps(lang === "mixed" ? "ar-JO" : lang));
     setBusy(false);
   }
 
@@ -19,12 +19,15 @@ export default function PreCheck({ title, rules, onReady }: { title: string; rul
       <h1>{title}</h1>
       <ul>{rules.map((r) => <li key={r}>{r}</li>)}</ul>
       <div className="field" style={{ maxWidth: 320 }}>
-        <label htmlFor="lang">Speaking language (speech recognition handles one language at a time)</label>
+        <label htmlFor="lang">Speaking language</label>
         <select id="lang" value={lang} onChange={(e) => { setLang(e.target.value); setCaps(null); }}>
           <option value="en-US">English</option>
           <option value="ar-JO">Arabic (العربية)</option>
+          <option value="mixed">Arabic + English (switch while answering)</option>
         </select>
+        <p className="fine" style={{ marginTop: 6 }}>Browser speech recognition understands one language at a time, and accuracy varies by browser and accent. For mixed answers, use the language switch in the room, or type in Arabic and English together.</p>
       </div>
+      {notice && <div className="notice warn">{notice}</div>}
       {!caps && <button disabled={busy} onClick={check}>{busy ? "Checking…" : "Check microphone & voice support"}</button>}
       {caps && (
         <>

@@ -6,6 +6,7 @@ interface Started {
   track: string;
   deadlineAt: string;
   serverNow: string;
+  questionSet: string;
   questions: { q: string; options: string[] }[];
 }
 
@@ -82,6 +83,7 @@ export default function Assessment() {
       </div>
       <div className="progress" aria-hidden><div style={{ width: `${((idx + 1) / data.questions.length) * 100}%` }} /></div>
       <p className="muted" style={{ marginTop: 8 }}>Question {idx + 1} of {data.questions.length} · {answeredCount} answered · text only, no microphone needed</p>
+      <p className="fine">Core fundamentals question set: {data.questionSet}. The questions are a fixed list and are scored on the server.</p>
       <div className="card">
         <h2>{q.q}</h2>
         {q.options.map((o, i) => (

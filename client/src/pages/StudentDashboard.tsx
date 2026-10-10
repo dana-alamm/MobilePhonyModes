@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
+import SkillCombobox from "../components/SkillCombobox";
 
 interface State {
-  tracks: string[];
   selectedTracks: string[];
-  assessments: { track: string; status: string; score: number | null; passed: boolean | null }[];
+  reviewConfirmed: boolean;
+  invites: { id: number; company: string; createdAt: string }[];
+  assessments: { track: string; status: string; score: number | null; passed: boolean | null; attempts: number; questionSet: string; canRetake: boolean }[];
   allAssessmentsDone: boolean;
   officialTrack: string | null;
   officialScore: number | null;
@@ -13,7 +15,7 @@ interface State {
   passMark: number;
   recommendations: { title: string; topics: string[]; url: string }[];
   practice: { used: number; allowed: number; remaining: number; priceJod: number; freeLimit: number };
-  official: { stage: "hr" | "tech"; status: string; score: number | null; summary: string | null }[];
+  official: { stage: "hr" | "tech"; status: string; score: number | null; summary: string | null; evalStatus: string | null }[];
 }
 
 const statusBadge = (s: string) =>
@@ -43,8 +45,24 @@ export default function StudentDashboard() {
 
   const started = s.assessments.some((a) => a.status !== "not_started");
   const rolesLocked = started;
-  const toggle = (t: string) =>
-    setPicked((p) => (p.includes(t) ? p.filter((x) => x !== t) : p.length >= 2 ? p : [...p, t]));
+  const failed = s.allAssessmentsDone && !s.passed;
+  const anyRetakeable = s.assessments.some((a) => a.canRetake);
+
+  async function confirmReview(checked: boolean) {
+    if (!checked) return;
+    setError("");
+    try { await api("/student/review-confirm", { body: {} }); await load(); }
+    catch (e) { setError((e as Error).message); }
+  }
+
+  async function retake(track: string) {
+    setError("");
+    setBusy(true);
+    try {
+      await api(`/student/assessments/${encodeURIComponent(track)}/retake`, { body: {} });
+      navigate(`/student/assessment/${encodeURIComponent(track)}`);
+    } catch (e) { setError((e as Error).message); setBusy(false); }
+  }
 
   async function saveRoles() {
     setError("");
@@ -77,32 +95,28 @@ export default function StudentDashboard() {
       {error && <div className="notice error">{error}</div>}
 
       <section className={`card ${!rolesLocked ? "active" : ""}`}>
-        <h2><span className="step">01</span>Choose your role (up to 2)</h2>
-        <div className="grid" role="group" aria-label="Roles">
-          {s.tracks.map((t) => (
-            <label key={t} className={`track-card ${picked.includes(t) ? "selected" : ""}`}>
-              <input type="checkbox" checked={picked.includes(t)} disabled={rolesLocked || (!picked.includes(t) && picked.length >= 2)} onChange={() => toggle(t)} />
-              {t}
-            </label>
-          ))}
-        </div>
-        <p className="muted" style={{ marginTop: 12 }}>
-          {rolesLocked ? "Roles are locked once you start an assessment." : "Even if you pick a role you aren't sure about, the assessment and interviews score you honestly, and companies see those scores."}
+        <h2><span className="step">01</span>Choose your specialization (1 or 2)</h2>
+        <SkillCombobox selected={picked} onChange={setPicked} disabled={rolesLocked} />
+        <p className="muted" style={{ margin: "12px 0" }}>
+          {rolesLocked ? "Skills are locked once you start an assessment." : "You can only choose skills from the list. The assessment and interviews score you honestly, and companies see those scores."}
         </p>
         {!rolesLocked && (
-          <button disabled={busy || picked.length === 0 || JSON.stringify(picked) === JSON.stringify(s.selectedTracks)} onClick={saveRoles}>Save roles</button>
+          <button disabled={busy || picked.length === 0 || JSON.stringify(picked) === JSON.stringify(s.selectedTracks)} onClick={saveRoles}>Save specialization</button>
         )}
       </section>
 
       <section className={`card ${s.selectedTracks.length && !s.allAssessmentsDone ? "active" : ""} ${!s.selectedTracks.length ? "locked" : ""}`}>
         <h2><span className="step">02</span>Assessments (text only, 10 questions, 15 min each)</h2>
-        {!s.selectedTracks.length && <p className="muted">Save your roles first.</p>}
+        {!s.selectedTracks.length && <p className="muted">Save your specialization first.</p>}
         {s.assessments.map((a) => (
           <div key={a.track} className="row between" style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
             <div>
-              <strong>{a.track}</strong> {statusBadge(a.status)}
+              <strong>{a.track}</strong> {statusBadge(a.status)} {a.attempts > 1 && <span className="badge">attempt {a.attempts}</span>}
               {a.score !== null && <span style={{ marginLeft: 10 }} className={a.passed ? "accent" : ""}>{a.score}/10</span>}
             </div>
+            {a.canRetake && (
+              <button className="small" disabled={busy} onClick={() => retake(a.track)}>Retake Assessment</button>
+            )}
             {a.status !== "completed" && (
               <button className="small" onClick={() => navigate(`/student/assessment/${encodeURIComponent(a.track)}`)}>
                 {a.status === "in_progress" ? "Resume" : "Start"}
@@ -112,7 +126,7 @@ export default function StudentDashboard() {
         ))}
         {s.allAssessmentsDone && (
           <div style={{ marginTop: 16 }}>
-            <p className="muted">Pass mark: {s.passMark}/10. The higher score becomes your official track (ties go to the role you listed first).</p>
+            <p className="muted">Pass mark: {s.passMark}/10. The higher score becomes your official skill (ties go to the one you listed first).</p>
             <div className={`score ${s.passed ? "" : "fail"}`}>{s.officialScore}/10 · {s.officialTrack}</div>
             {s.passed ? (
               <p className="accent">Passed. Practice and official interviews are unlocked.</p>
@@ -128,6 +142,12 @@ export default function StudentDashboard() {
                     <div className="muted">Review: {r.topics.join(" · ")}</div>
                   </div>
                 ))}
+                <label className="check">
+                  <input type="checkbox" checked={s.reviewConfirmed} disabled={s.reviewConfirmed} onChange={(e) => confirmReview(e.target.checked)} />
+                  I confirm I have reviewed the recommended materials.
+                </label>
+                {s.reviewConfirmed && anyRetakeable && <p className="accent">Thanks. Use the Retake Assessment button above to try again. You need {s.passMark}/10 or more to unlock the voice interview.</p>}
+                <p className="fine">The retake button appears after you confirm. Voice interviews stay locked until you pass.</p>
               </>
             )}
           </div>
@@ -162,7 +182,7 @@ export default function StudentDashboard() {
         {!unlocked ? <p className="muted">Unlocks after you pass the assessment.</p> : (
           <>
             <div className="notice">
-              Voice is required. Each question is read aloud; you have <strong>15 seconds</strong> to start speaking and <strong>60 seconds</strong> to answer. Each question can be repeated once. The HR interview has a strict <strong>10-minute</strong> total limit that does not reset if you refresh.
+              Voice is required. Your answers can be in Arabic, English or both. After the interview, the text of your answers is sent to OpenAI (GPT-4o-mini) for scoring and feedback; no audio or personal details are sent. Each question is read aloud; you have <strong>15 seconds</strong> to start speaking and <strong>60 seconds</strong> to answer. Each question can be repeated once. The HR interview has a strict <strong>10-minute</strong> total limit that does not reset if you refresh.
             </div>
             {[{ o: hr, label: "HR interview", locked: false }, { o: tech, label: `Technical interview (${s.officialTrack})`, locked: !hrDone }].map(({ o, label, locked }) => (
               <div key={o.stage} style={{ padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
@@ -175,6 +195,7 @@ export default function StudentDashboard() {
                   )}
                 </div>
                 {locked && <div className="muted">Finish the HR interview first.</div>}
+                {o.evalStatus === "failed" && <div className="notice error" style={{ marginTop: 8 }}>The AI evaluation did not finish. <a href={`/student/interview/${o.stage}`} onClick={(e) => { e.preventDefault(); navigate(`/student/interview/${o.stage}`); }}>Open the result page to retry.</a></div>}
                 {o.summary && <p style={{ marginTop: 8 }}>{o.summary}</p>}
               </div>
             ))}
@@ -182,11 +203,20 @@ export default function StudentDashboard() {
         )}
       </section>
 
+      {s.invites.length > 0 && (
+        <section className="card active">
+          <h2>Interview invitations</h2>
+          {s.invites.map((i) => (
+            <p key={i.id}><strong>{i.company}</strong> invited you to a formal interview <span className="muted">({new Date(i.createdAt).toLocaleDateString()})</span></p>
+          ))}
+        </section>
+      )}
+
       {unlocked && (
         <section className="card">
           <h2><span className="step">05</span>Your profile</h2>
           <dl className="kv">
-            <dt>Official track</dt><dd>{s.officialTrack}</dd>
+            <dt>Official skill</dt><dd>{s.officialTrack}</dd>
             <dt>Assessment</dt><dd>{s.assessments.map((a) => `${a.track}: ${a.score}/10`).join(" · ")}</dd>
             <dt>HR interview</dt><dd>{hr.status}{hr.score !== null ? ` · ${hr.score}/10` : ""}</dd>
             <dt>Technical interview</dt><dd>{tech.status}{tech.score !== null ? ` · ${tech.score}/10` : ""}</dd>

@@ -2,9 +2,9 @@ import { Router } from "express";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db, interviewResponses, officialInterviews } from "../db.js";
-import { HR_OFFICIAL, LIMITS, TECH_OFFICIAL, type Track } from "../content.js";
+import { HR_OFFICIAL, LIMITS, techOfficialFor } from "../content.js";
 import { requireRole } from "../auth.js";
-import { buildRuleBasedSummary } from "../summary.js";
+import { AI_MODEL, evaluateInterview } from "../ai.js";
 import { getProfile, requireUnlocked } from "./student.js";
 
 export const interviewRouter = Router();
@@ -14,25 +14,49 @@ type Interview = typeof officialInterviews.$inferSelect;
 
 const QUESTION_WINDOW_MS = (LIMITS.initiationSeconds + LIMITS.answerSeconds + LIMITS.questionGraceSeconds) * 1000;
 
-async function finalize(iv: Interview, expired: boolean) {
+// Sends the captured transcript text to OpenAI and stores the result. Failures are stored visibly (no fake fallback feedback).
+async function runEvaluation(iv: Interview) {
   const rows = await db.select().from(interviewResponses).where(eq(interviewResponses.interviewId, iv.id)).orderBy(asc(interviewResponses.idx));
-  const { summary, score } = buildRuleBasedSummary({
-    stage: iv.stage as "hr" | "tech",
-    track: iv.track as Track,
-    total: iv.questions.length,
-    responses: rows.map((r) => ({ transcript: r.transcript, skipped: r.skipped, inputMode: r.inputMode })),
-    expired,
+  const responses = iv.questions.map((question, i) => {
+    const r = rows.find((x) => x.idx === i);
+    return { question, transcript: r && !r.skipped ? (r.transcript ?? "") : "", inputMode: r?.inputMode ?? "none" };
   });
-  const [updated] = await db.update(officialInterviews)
-    .set({ status: expired ? "expired" : "completed", completedAt: new Date(), summary, score, feedbackType: "rule_based" })
+  if (responses.every((r) => r.transcript.trim() === "")) {
+    await db.update(officialInterviews).set({
+      score: 0, feedbackType: "none", evalStatus: "none", evalError: null,
+      summary: "No answers were captured in this interview. No evaluation could be produced.",
+    }).where(eq(officialInterviews.id, iv.id));
+    return;
+  }
+  const result = await evaluateInterview({ stage: iv.stage as "hr" | "tech", skill: iv.track, responses });
+  if (result.ok) {
+    await db.update(officialInterviews).set({
+      score: result.score, summary: result.summary, feedbackType: `ai_${AI_MODEL}`, evalStatus: "done", evalError: null,
+    }).where(eq(officialInterviews.id, iv.id));
+  } else {
+    await db.update(officialInterviews).set({ evalStatus: "failed", evalError: result.error }).where(eq(officialInterviews.id, iv.id));
+  }
+}
+
+async function finalize(iv: Interview, expired: boolean) {
+  const [won] = await db.update(officialInterviews)
+    .set({ status: expired ? "expired" : "completed", completedAt: new Date(), evalStatus: "pending" })
     .where(and(eq(officialInterviews.id, iv.id), eq(officialInterviews.status, "in_progress")))
     .returning();
-  return updated ?? (await db.select().from(officialInterviews).where(eq(officialInterviews.id, iv.id)))[0];
+  if (won) await runEvaluation(won);
+  return (await db.select().from(officialInterviews).where(eq(officialInterviews.id, iv.id)))[0];
 }
 
 // Builds the current interview state. All timing decisions are made here, on the server.
 async function currentState(ivIn: Interview) {
   let iv = ivIn;
+  // An evaluation that never finished (e.g. server restart) is surfaced as failed so it can be retried.
+  if (iv.evalStatus === "pending" && iv.completedAt && Date.now() - iv.completedAt.getTime() > 90_000) {
+    [iv] = await db.update(officialInterviews)
+      .set({ evalStatus: "failed", evalError: "The AI evaluation did not finish." })
+      .where(and(eq(officialInterviews.id, iv.id), eq(officialInterviews.evalStatus, "pending"))).returning()
+      .then((r) => (r.length ? r : [iv]));
+  }
   for (let guard = 0; guard < 20; guard++) {
     if (iv.status !== "in_progress") break;
     if (Date.now() >= iv.deadlineAt.getTime()) {
@@ -73,6 +97,7 @@ async function currentState(ivIn: Interview) {
     currentIdx: iv.questions.length, question: null as string | null,
     startedAt: iv.startedAt, deadlineAt: iv.deadlineAt, serverNow: new Date(),
     score: iv.score, summary: iv.summary, feedbackType: iv.feedbackType,
+    evalStatus: iv.evalStatus, evalError: iv.evalError,
   };
 }
 
@@ -83,7 +108,7 @@ interviewRouter.post("/:stage/start", async (req, res) => {
   const profile = await getProfile(userId);
   const unlocked = await requireUnlocked(userId, profile.officialTrack);
   if (!unlocked.ok) return res.status(403).json({ error: unlocked.error });
-  const track = profile.officialTrack as Track;
+  const track = profile.officialTrack as string;
 
   const all = await db.select().from(officialInterviews).where(eq(officialInterviews.userId, userId));
   let iv = all.find((o) => o.stage === stage);
@@ -95,7 +120,7 @@ interviewRouter.post("/:stage/start", async (req, res) => {
       }
     }
     const minutes = stage === "hr" ? LIMITS.hrMinutes : LIMITS.techMinutes;
-    const questions = stage === "hr" ? HR_OFFICIAL : TECH_OFFICIAL[track];
+    const questions = stage === "hr" ? HR_OFFICIAL : techOfficialFor(track);
     [iv] = await db.insert(officialInterviews).values({
       userId, stage, track, questions, deadlineAt: new Date(Date.now() + minutes * 60_000),
     }).onConflictDoNothing().returning();
@@ -164,6 +189,19 @@ interviewRouter.post("/:id/answer", async (req, res) => {
     answerSeconds: skipped ? 0 : seconds,
   }).where(and(eq(interviewResponses.id, cur.id), isNull(interviewResponses.answeredAt)));
   res.json(await currentState(iv));
+});
+
+interviewRouter.post("/:id/evaluate", async (req, res) => {
+  const iv = await ownInterview(req.user!.id, Number(req.params.id));
+  if (!iv) return res.status(404).json({ error: "Interview not found." });
+  const [won] = await db.update(officialInterviews)
+    .set({ evalStatus: "pending", evalError: null, completedAt: new Date() })
+    .where(and(eq(officialInterviews.id, iv.id), eq(officialInterviews.evalStatus, "failed")))
+    .returning();
+  if (!won) return res.status(409).json({ error: "This interview does not need a new evaluation." });
+  await runEvaluation(won);
+  const [fresh] = await db.select().from(officialInterviews).where(eq(officialInterviews.id, iv.id));
+  res.json(await currentState(fresh));
 });
 
 interviewRouter.get("/:id", async (req, res) => {

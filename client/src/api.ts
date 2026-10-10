@@ -29,4 +29,7 @@ export interface SessionUser {
   id: number;
   name: string;
   role: "student" | "company";
+  email: string | null;
+  subscriptionStatus: "none" | "active";
+  subscriptionPlan: string | null;
 }

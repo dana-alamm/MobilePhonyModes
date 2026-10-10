@@ -38,6 +38,8 @@ export default function QuestionRoom({
   const [banner, setBanner] = useState("");
   const [error, setError] = useState("");
   const [repeatsLeft, setRepeatsLeft] = useState(repeatsIn);
+  const [lang, setLang] = useState(caps.lang);
+  const langRef = useRef(caps.lang);
 
   const phaseRef = useRef<Phase>("waiting");
   const finished = useRef(false);
@@ -70,7 +72,7 @@ export default function QuestionRoom({
     if (!voiceMode || recRef.current || finished.current || speakingRef.current) return;
     const Ctor = getRecognitionCtor();
     const rec = new Ctor();
-    rec.lang = caps.lang;
+    rec.lang = langRef.current;
     rec.continuous = true;
     rec.interimResults = true;
     rec.onresult = (e: any) => {
@@ -141,7 +143,7 @@ export default function QuestionRoom({
     if (caps.synthesis) {
       speakingRef.current = true;
       setSpeaking(true);
-      cancelSpeech.current = speak(question, caps.lang, () => {
+      cancelSpeech.current = speak(question, "en-US", () => {
         speakingRef.current = false;
         setSpeaking(false);
         startTimers();
@@ -160,6 +162,16 @@ export default function QuestionRoom({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Browser speech recognition handles one language at a time, so Arabic + English answers are captured by switching.
+  function switchLang(next: string) {
+    langRef.current = next;
+    setLang(next);
+    if (!recRef.current) return;
+    stopRecognition();
+    baseRef.current = transcriptRef.current;
+    if (!speakingRef.current && !finished.current) setTimeout(startRecognition, 250);
+  }
+
   async function repeat() {
     if (repeatsLeft <= 0 || finished.current) return;
     setRepeatsLeft(0); // one repeat per question; the server enforces it too
@@ -171,7 +183,7 @@ export default function QuestionRoom({
     speakingRef.current = true;
     setSpeaking(true);
     // The response timers keep running while the question is repeated.
-    cancelSpeech.current = speak(question, caps.lang, () => {
+    cancelSpeech.current = speak(question, "en-US", () => {
       speakingRef.current = false;
       setSpeaking(false);
       startRecognition();
@@ -212,13 +224,20 @@ export default function QuestionRoom({
 
       {voiceMode ? (
         <>
-          <label style={{ marginTop: 16 }}>Live transcript from browser speech recognition (not an audio recording)</label>
-          <div className="transcript" aria-live="polite">{transcript || <span className="muted">Waiting for you to speak…</span>}</div>
+          <div className="row between" style={{ marginTop: 16 }}>
+            <label style={{ margin: 0 }}>Live transcript from browser speech recognition (not an audio recording)</label>
+            <select aria-label="Speaking language" value={lang} onChange={(e) => switchLang(e.target.value)} style={{ width: "auto" }} disabled={phase === "finishing"}>
+              <option value="en-US">Speaking: English</option>
+              <option value="ar-JO">Speaking: العربية</option>
+            </select>
+          </div>
+          <p className="fine" style={{ margin: "6px 0" }}>Mixing Arabic and English? Switch the language above when you change language. Everything you say is added to the same answer.</p>
+          <div className="transcript" dir="auto" aria-live="polite">{transcript || <span className="muted">Waiting for you to speak…</span>}</div>
         </>
       ) : (
         <div className="field" style={{ marginTop: 16 }}>
           <label htmlFor="typed">TYPED FALLBACK (not a spoken answer)</label>
-          <textarea id="typed" rows={4} value={transcript} disabled={phase === "finishing"} onChange={(e) => {
+          <textarea id="typed" rows={4} dir="auto" placeholder="You can type in Arabic, English, or both." value={transcript} disabled={phase === "finishing"} onChange={(e) => {
             transcriptRef.current = e.target.value;
             setTranscript(e.target.value);
             if (e.target.value.trim()) beginAnswering();
