@@ -46,7 +46,7 @@ export default function CompanyBell() {
         <div className="bell-menu">
           {list.length === 0 && <p className="muted">No replies from candidates yet.</p>}
           {list.map((n) => (
-            <button key={n.id} className="bell-item" onClick={() => { setOpen(false); navigate(`/company/candidates/${n.studentId}`); }}>
+            <button key={n.id} className="bell-item" onClick={() => { setOpen(false); navigate(`/company/messages/${n.studentId}`); }}>
               <strong>{n.student} replied to your invite</strong>
               <span>{preview(n.body)}</span>
               <span className="muted">{new Date(n.createdAt).toLocaleString()}</span>

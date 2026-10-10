@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-
 import { api, type SessionUser } from "./api";
 import CompanyBell from "./components/CompanyBell";
 import NotificationBell from "./components/NotificationBell";
+import CompanyMessages from "./pages/CompanyMessages";
 import Messages from "./pages/Messages";
 import Welcome from "./pages/Welcome";
 import Auth from "./pages/Auth";
@@ -35,7 +36,7 @@ export default function App() {
   const subscribed = user?.subscriptionStatus === "active";
   const home = user ? (user.role === "student" ? "/student" : subscribed ? "/company" : "/company/pricing") : "/";
   const shell = (el: React.ReactElement, role: "student" | "company", opts: { allowUnsubscribed?: boolean } = {}) =>
-    !user ? <Navigate to="/login" replace /> : user.role !== role ? <Navigate to={home} replace />
+    !user ? <Navigate to="/" replace /> : user.role !== role ? <Navigate to={home} replace />
     : role === "company" && !subscribed && !opts.allowUnsubscribed ? <Navigate to="/company/pricing" replace /> : (
       <>
         <header className="topbar">
@@ -69,8 +70,9 @@ export default function App() {
       <Route path="/student/interview/:stage" element={shell(<OfficialInterview />, "student")} />
       <Route path="/company/pricing" element={shell(<Pricing onSubscribed={setUser} />, "company", { allowUnsubscribed: true })} />
       <Route path="/company" element={shell(<CompanyDashboard />, "company")} />
+      <Route path="/company/messages/:studentId" element={shell(<CompanyMessages />, "company")} />
       <Route path="/company/candidates/:id" element={shell(<CandidateProfile />, "company")} />
-      <Route path="*" element={<Navigate to={home} replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

@@ -5,6 +5,7 @@ import { db, assessments, invites, messages, officialInterviews, studentProfiles
 import { LIMITS, SKILL_GROUPS, isSkill } from "../content.js";
 import { requireRole } from "../auth.js";
 import { publicUser } from "./auth.js";
+import { threadFor } from "../chat.js";
 
 export const companyRouter = Router();
 companyRouter.use(requireRole("company"));
@@ -133,7 +134,8 @@ companyRouter.post("/candidates/:id/invite", async (req, res) => {
       return res.status(403).json({ error: `The Basic plan includes ${LIMITS.basicInviteLimit} invites. Upgrade to Premium for unlimited invites.` });
     }
   }
-  await db.insert(invites).values({ companyId, studentId: id, message: INVITE_MESSAGE }).onConflictDoNothing();
+  const [inv] = await db.insert(invites).values({ companyId, studentId: id, message: INVITE_MESSAGE }).onConflictDoNothing().returning();
+  if (inv) await threadFor(inv.id);
   res.json({ ok: true });
 });
 
@@ -146,4 +148,28 @@ companyRouter.get("/notifications", async (req, res) => {
     .where(and(eq(invites.companyId, req.user!.id), eq(messages.sender, "student")))
     .orderBy(desc(messages.id)).limit(20);
   res.json({ notifications: rows });
+});
+
+// ---- Chat with an invited candidate (database-backed, no real-time delivery) ----
+async function chatInvite(companyId: number, studentId: number) {
+  if (!Number.isInteger(studentId)) return null;
+  const [row] = await db.select({ id: invites.id, student: users.name }).from(invites)
+    .innerJoin(users, eq(users.id, invites.studentId))
+    .where(and(eq(invites.companyId, companyId), eq(invites.studentId, studentId)));
+  return row ?? null;
+}
+
+companyRouter.get("/chats/:studentId/messages", async (req, res) => {
+  const inv = await chatInvite(req.user!.id, Number(req.params.studentId));
+  if (!inv) return res.status(404).json({ error: "You have not invited this candidate yet." });
+  res.json({ name: inv.student, messages: await threadFor(inv.id) });
+});
+
+companyRouter.post("/chats/:studentId/messages", async (req, res) => {
+  const inv = await chatInvite(req.user!.id, Number(req.params.studentId));
+  if (!inv) return res.status(404).json({ error: "You have not invited this candidate yet." });
+  const parsed = z.object({ body: z.string().trim().min(1).max(1000) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Message must be 1 to 1000 characters." });
+  const [row] = await db.insert(messages).values({ inviteId: inv.id, sender: "company", body: parsed.data.body }).returning();
+  res.json({ message: row });
 });

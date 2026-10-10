@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import Modal from "../components/Modal";
 import { useToast } from "../components/Toast";
@@ -8,6 +8,7 @@ interface Iv { status: string; score: number | null; summary: string | null; fee
 
 export default function CandidateProfile() {
   const id = useParams().id;
+  const navigate = useNavigate();
   const [c, setC] = useState<any>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -55,14 +56,14 @@ export default function CandidateProfile() {
       <div className="row between">
         <h1>{c.name} {c.isSample && <span className="badge yellow">Sample profile</span>}</h1>
         {c.invited
-          ? <button disabled>Invite Sent</button>
+          ? <span className="row"><button disabled>Invite Sent</button><button onClick={() => navigate(`/company/messages/${id}`)}>Open Chat</button></span>
           : <button onClick={() => setOpen(true)}>Send Interview Invite</button>}
       </div>
       {open && (
         <Modal title="Send interview invite" onClose={() => !sending && setOpen(false)}>
           <label htmlFor="msg">Message to {c.name}</label>
           <textarea id="msg" readOnly value={message} dir="auto" />
-          <p className="fine">Demo feature: the invite is saved to the candidate's dashboard. No email or live chat is sent.</p>
+          <p className="fine">The invite and a chat conversation are added to the candidate's account. No email is sent.</p>
           <div className="row">
             <button disabled={sending} onClick={send}>{sending ? "Sending…" : "Send Message"}</button>
             <button className="ghost" disabled={sending} onClick={() => setOpen(false)}>Cancel</button>

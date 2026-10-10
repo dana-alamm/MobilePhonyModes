@@ -6,6 +6,7 @@ import {
   DEFAULT_SKILL, HR_PRACTICE, LIMITS, SKILL_GROUPS, assessmentFor, bankOf, isSkill, recommendationsFor, techPracticeFor,
 } from "../content.js";
 import { requireRole } from "../auth.js";
+import { threadFor } from "../chat.js";
 
 export const studentRouter = Router();
 studentRouter.use(requireRole("student"));
@@ -300,10 +301,6 @@ export async function requireUnlocked(userId: number, officialTrack: string | nu
 }
 
 // ---- Messages (invite chat). Stored in the database; no real-time delivery. ----
-const INTERVIEW_SLOT = "Monday, Oct 12th at 10:00 AM";
-const initialMessage = () =>
-  `Hello! We are impressed by your profile and would like to invite you for a formal interview on ${INTERVIEW_SLOT}. Let us know if this time works for you.`;
-
 studentRouter.get("/invites", async (req, res) => {
   const rows = await db.select({ id: invites.id, createdAt: invites.createdAt, company: users.name })
     .from(invites).innerJoin(users, eq(users.id, invites.companyId)).where(eq(invites.studentId, req.user!.id)).orderBy(desc(invites.id));
@@ -321,12 +318,7 @@ async function ownInvite(userId: number, id: number) {
 studentRouter.get("/invites/:id/messages", async (req, res) => {
   const inv = await ownInvite(req.user!.id, Number(req.params.id));
   if (!inv) return res.status(404).json({ error: "Conversation not found." });
-  let rows = await db.select().from(messages).where(eq(messages.inviteId, inv.id)).orderBy(asc(messages.id));
-  if (rows.length === 0) {
-    await db.insert(messages).values({ inviteId: inv.id, sender: "company", body: initialMessage() });
-    rows = await db.select().from(messages).where(eq(messages.inviteId, inv.id)).orderBy(asc(messages.id));
-  }
-  res.json({ company: inv.company, messages: rows });
+  res.json({ company: inv.company, messages: await threadFor(inv.id) });
 });
 
 studentRouter.post("/invites/:id/messages", async (req, res) => {
