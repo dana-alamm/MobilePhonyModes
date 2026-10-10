@@ -78,13 +78,19 @@ export default function OfficialInterview() {
     return () => clearTimeout(t);
   }, [state]);
 
+  const [submitting, setSubmitting] = useState(false);
   async function onFinish(r: AnswerResult) {
     if (!state) return;
+    setSubmitting(true);
+    // Let the browser paint the spinner before the request starts.
+    await new Promise((res) => requestAnimationFrame(() => setTimeout(res, 0)));
     try {
       apply(await api<IState>(`/interviews/${state.id}/answer`, { body: { idx: state.currentIdx, ...r } }));
     } catch (e) {
       if (e instanceof ApiError && e.data?.state) apply(e.data.state);
       setError((e as Error).message);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -123,7 +129,7 @@ export default function OfficialInterview() {
       <div className="card">
         <h1>{label} interview {state.status === "expired" ? "ended (time limit reached)" : "complete"}</h1>
         {error && <div className="notice warn">{error}</div>}
-        {ev === "pending" && <p className="muted">Your answers are being evaluated by AI. This usually takes a few seconds…</p>}
+        {ev === "pending" && <p className="muted"><span className="spinner" aria-hidden="true" /> Your answers are being evaluated by AI. This usually takes a few seconds…</p>}
         {ev === "failed" && (
           <>
             <div className="notice error">The AI evaluation could not be completed: {state.evalError ?? "unknown error"}. Your answers are saved, so you can try again.</div>
@@ -151,6 +157,7 @@ export default function OfficialInterview() {
         <div className={`timer ${left < 60 ? "low" : ""}`} aria-label="Total time remaining">{mm}:{ss} <span className="muted" style={{ fontSize: "0.8rem" }}>total left</span></div>
       </div>
       {error && <div className="notice warn">{error}</div>}
+      {submitting && <div className="notice" role="status"><span className="spinner" aria-hidden="true" /> Submitting your answer…</div>}
       {state.question && (
         <QuestionRoom
           key={`${state.id}-${state.currentIdx}`}

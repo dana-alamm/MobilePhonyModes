@@ -38,12 +38,22 @@ async function runEvaluation(iv: Interview) {
   }
 }
 
+// Runs the AI evaluation in the background so the HTTP response (and the UI) is never blocked on it.
+// evalStatus is already "pending" and clients poll until it becomes done/failed.
+function startEvaluation(iv: Interview) {
+  void runEvaluation(iv).catch(async (e) => {
+    console.error("Evaluation crashed", e instanceof Error ? e.name : "error");
+    await db.update(officialInterviews).set({ evalStatus: "failed", evalError: "The AI evaluation could not be completed." })
+      .where(eq(officialInterviews.id, iv.id)).catch(() => {});
+  });
+}
+
 async function finalize(iv: Interview, expired: boolean) {
   const [won] = await db.update(officialInterviews)
     .set({ status: expired ? "expired" : "completed", completedAt: new Date(), evalStatus: "pending" })
     .where(and(eq(officialInterviews.id, iv.id), eq(officialInterviews.status, "in_progress")))
     .returning();
-  if (won) await runEvaluation(won);
+  if (won) startEvaluation(won);
   return (await db.select().from(officialInterviews).where(eq(officialInterviews.id, iv.id)))[0];
 }
 
@@ -199,7 +209,7 @@ interviewRouter.post("/:id/evaluate", async (req, res) => {
     .where(and(eq(officialInterviews.id, iv.id), eq(officialInterviews.evalStatus, "failed")))
     .returning();
   if (!won) return res.status(409).json({ error: "This interview does not need a new evaluation." });
-  await runEvaluation(won);
+  startEvaluation(won);
   const [fresh] = await db.select().from(officialInterviews).where(eq(officialInterviews.id, iv.id));
   res.json(await currentState(fresh));
 });

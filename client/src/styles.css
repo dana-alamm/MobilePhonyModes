@@ -193,3 +193,6 @@ button.bell-item span { font-size: 0.8rem; }
 .bubble-time { font-size: 0.72rem; color: var(--muted); }
 .chat-input { display: flex; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--border); }
 .chat .notice { margin: 0 14px 8px; }
+
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--green); border-radius: 50%; vertical-align: -3px; margin-right: 6px; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
