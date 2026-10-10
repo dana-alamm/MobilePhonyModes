@@ -1,7 +1,8 @@
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { api, type SessionUser } from "./api";
+import NotificationBell from "./components/NotificationBell";
 import Welcome from "./pages/Welcome";
 import Auth from "./pages/Auth";
 import Pricing from "./pages/Pricing";
@@ -15,6 +16,7 @@ import CandidateProfile from "./pages/CandidateProfile";
 export default function App() {
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     api<{ user: SessionUser | null }>("/auth/me").then((r) => setUser(r.user)).catch(() => setUser(null));
@@ -37,11 +39,17 @@ export default function App() {
         <header className="topbar">
           <span className="brand">Mish Senior</span>
           <span className="who">
+            {user.role === "student" && <NotificationBell />}
             <span>{user.name} · {user.role}</span>
             <button className="ghost small" onClick={logout}>Log out</button>
           </span>
         </header>
-        <main className="container">{el}</main>
+        <main className="container">
+          {location.pathname !== home && (
+            <button className="ghost small back" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate(home))}>← Back</button>
+          )}
+          {el}
+        </main>
       </>
     );
 

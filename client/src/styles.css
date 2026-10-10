@@ -167,3 +167,11 @@ tr.click:hover { background: #0d0d0d; }
   table { font-size: 0.8rem; }
   th:nth-child(n+4), td:nth-child(n+4) { display: none; }
 }
+
+.bell-wrap { position: relative; }
+button.bell { position: relative; background: transparent; color: var(--text); border: 1px solid var(--border); padding: 7px 9px; line-height: 0; }
+button.bell:hover:not(:disabled) { background: rgba(54, 255, 20, 0.1); }
+.bell-badge { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--green); color: #000; font-size: 0.72rem; font-weight: 700; line-height: 18px; text-align: center; box-shadow: 0 0 8px rgba(54, 255, 20, 0.6); }
+.bell-menu { position: absolute; right: 0; top: 46px; width: 260px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; z-index: 10; color: var(--text); }
+.bell-menu p { margin: 4px 0 0; font-size: 0.85rem; }
+button.back { margin-bottom: 14px; display: inline-flex; align-items: center; gap: 6px; }
