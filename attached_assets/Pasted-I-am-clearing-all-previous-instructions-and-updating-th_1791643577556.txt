@@ -1,0 +1,51 @@
+I am clearing all previous instructions and updating the scope to be 100% cost-safe. We will build the "Mish Senior" recruitment platform using ONLY Replit's included features and free browser APIs. DO NOT use OpenAI, and DO NOT use Replit's paid AI integrations.
+
+Exit Plan mode and start building this exact specification:
+
+# Mish Senior - Hackathon MVP Specification
+
+## 1. Tech Stack & Environment (100% Free/Local)
+- Frontend: React (Vite) + TypeScript.
+- Backend: Node.js + Express.
+- Database: Replit Postgres.
+- Authentication: Mock Demo Login (Simple UI toggle to log in as Student or Company).
+- Payments: Simulated Mock UI (clicking "Pay 1 JOD" just updates the database to unlock a session).
+- Voice & Audio: Browser-native `Web Speech API` (`SpeechSynthesis` for the interviewer asking questions, and `SpeechRecognition` to capture the user's spoken answers). 
+
+## 2. Design System
+- Cyberpunk Hacker aesthetic.
+- Background: Black (#000000).
+- Primary Accent: Neon Green (#36FF14).
+- Text: White. Dividers: Dark Grey.
+
+## 3. Student Flow
+1. **Track Selection:** Student selects 1 or 2 roles (e.g., Flutter Developer, UI/UX).
+2. **Assessment:** A hardcoded 10-question text-based quiz. 
+   - Backend scores it. Higher score = Official Track. 
+   - Pass threshold is 5/10. If <5, show Udemy recommendations. If >=5, unlock interviews.
+3. **Practice Interviews:** 2 Free sessions. Then a mock "Pay 1 JOD" button to unlock 1 more.
+4. **Official Voice Interview (Core Feature):**
+   - The UI acts as a Voice Room.
+   - The system pulls questions from a hardcoded backend array (HR questions + Technical questions based on their track).
+   - **The Voice Loop:** The browser reads the question aloud (`SpeechSynthesis`). A 15-second timer starts. The user must speak into the mic. The browser transcribes it (`SpeechRecognition`). At 60 seconds, the mic cuts off and moves to the next question. 
+   - Enforce a strict 10-minute total limit for the HR section.
+
+## 4. Rule-Based Feedback & Summary (No LLMs)
+- When the interview finishes, the backend generates a summary based on strict logic, NOT AI.
+- Logic example: Count the words spoken. Check if the transcript contains specific track-related keywords (e.g., "State", "Widget" for Flutter). 
+- Generate a summary string like: "Candidate answered 4/5 technical questions, demonstrating knowledge of [Keywords found]. Communication was [Fluent/Brief] based on answer length." Store this string in the DB.
+
+## 5. Company Flow
+- The company logs in via Demo mode.
+- Dashboard shows a list of student profiles.
+- Company can filter by "Track" (e.g., Flutter) and "Minimum Score".
+- Clicking a profile shows the student's Assessment Score and the Rule-Based Interview Summary text.
+
+## 6. Build Order (Start Now)
+Step 1: Scaffold React, Node, and Replit Postgres.
+Step 2: Build the Demo Login and Cyberpunk UI layout.
+Step 3: Build the Assessment logic (Pass/fail gate).
+Step 4: Build the Voice Room using Web Speech API and the timers.
+Step 5: Build the Rule-based feedback generator and the Company filtering dashboard.
+
+Please confirm you understand this cost-safe, Replit-only approach, exit Plan mode, and immediately begin building Step 1.
