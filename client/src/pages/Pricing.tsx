@@ -6,12 +6,14 @@ import { useToast } from "../components/Toast";
 
 interface Plan { id: string; name: string; priceJod: number; features: string[] }
 
-// Mock paywall: no payment gateway and no card data is collected.
+// Mock paywall: no payment gateway. The card number is only length-checked in the browser and is never sent or stored.
 export default function Pricing({ onSubscribed }: { onSubscribed: (u: SessionUser) => void }) {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [chosen, setChosen] = useState<Plan | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [card, setCard] = useState("");
+  const [cardError, setCardError] = useState("");
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -21,6 +23,8 @@ export default function Pricing({ onSubscribed }: { onSubscribed: (u: SessionUse
 
   async function simulate() {
     if (!chosen) return;
+    if (card.length !== 16) { setCardError("Card number must be exactly 16 digits."); return; }
+    setCardError("");
     setBusy(true);
     setError("");
     try {
@@ -38,7 +42,7 @@ export default function Pricing({ onSubscribed }: { onSubscribed: (u: SessionUse
   return (
     <>
       <h1>Choose a plan to start hiring</h1>
-      <p className="muted">Pick a plan to unlock the candidate dashboard. This is a demonstration: no real payment is taken.</p>
+      <p className="muted">Pick a plan to unlock the candidate dashboard.</p>
       {error && <div className="notice error">{error}</div>}
       <div className="plans">
         {plans.map((p) => (
@@ -46,21 +50,30 @@ export default function Pricing({ onSubscribed }: { onSubscribed: (u: SessionUse
             <h2>{p.name}</h2>
             <div className="price">{p.priceJod} JOD <small>/ month</small></div>
             <ul>{p.features.map((f) => <li key={f}>{f}</li>)}</ul>
-            <button className={p.id === "premium" ? "" : "ghost"} onClick={() => { setChosen(p); setError(""); }}>Select {p.name}</button>
+            <button className={p.id === "premium" ? "" : "ghost"} onClick={() => { setChosen(p); setError(""); setCard(""); setCardError(""); }}>Select {p.name}</button>
           </div>
         ))}
       </div>
 
       {chosen && (
         <Modal title={`Subscribe to ${chosen.name}`} onClose={() => !busy && setChosen(null)}>
-          <div className="notice warn"><strong>Simulated payment.</strong> No card is charged and no card details are collected.</div>
           <dl className="kv" style={{ marginBottom: 16 }}>
             <dt>Plan</dt><dd>{chosen.name}</dd>
-            <dt>Amount</dt><dd>{chosen.priceJod} JOD / month (demo)</dd>
+            <dt>Amount</dt><dd>{chosen.priceJod} JOD / month</dd>
           </dl>
+          <div className="field">
+            <label htmlFor="card-number">Card number</label>
+            <input
+              id="card-number" inputMode="numeric" autoComplete="off" placeholder="1234 5678 9012 3456" aria-invalid={!!cardError}
+              value={card.replace(/(\d{4})(?=\d)/g, "$1 ")}
+              onChange={(e) => { setCard(e.target.value.replace(/\D/g, "").slice(0, 16)); setCardError(""); }}
+            />
+            {cardError && <div className="notice error" style={{ marginTop: 8 }}>{cardError}</div>}
+            <p className="fine">Card details are not processed or stored in this preview.</p>
+          </div>
           {error && <div className="notice error">{error}</div>}
           <div className="row">
-            <button disabled={busy} onClick={simulate}>{busy ? "Processing…" : "Simulate Payment"}</button>
+            <button disabled={busy} onClick={simulate}>{busy ? "Processing…" : `Pay ${chosen.priceJod} JOD`}</button>
             <button className="ghost" disabled={busy} onClick={() => setChosen(null)}>Cancel</button>
           </div>
         </Modal>
