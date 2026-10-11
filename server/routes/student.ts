@@ -28,12 +28,24 @@ export async function practiceAllowance(userId: number) {
   return { used, allowed, remaining: Math.max(0, allowed - used), freeLimit: LIMITS.freePracticeSessions };
 }
 
-// Official track = highest score among selected tracks; ties go to the role the student listed first.
+// Official track = strictly highest score among selected tracks. On a tie it returns null:
+// the student chooses (POST /primary-track), nothing is picked for them.
+async function tiedTracksFor(userId: number): Promise<string[]> {
+  const profile = await getProfile(userId);
+  const rows = await db.select().from(assessments).where(eq(assessments.userId, userId));
+  const done = profile.selectedTracks.map((t) => rows.find((r) => r.track === t && r.completedAt));
+  if (profile.selectedTracks.length < 2 || done.some((d) => !d)) return [];
+  const top = Math.max(...done.map((d) => d!.score ?? 0));
+  const best = done.filter((d) => (d!.score ?? 0) === top);
+  return best.length > 1 ? best.map((d) => d!.track) : [];
+}
+
 async function resolveOfficialTrack(userId: number) {
   const profile = await getProfile(userId);
   const rows = await db.select().from(assessments).where(eq(assessments.userId, userId));
   const done = profile.selectedTracks.map((t) => rows.find((r) => r.track === t && r.completedAt));
   if (profile.selectedTracks.length === 0 || done.some((d) => !d)) return null;
+  if ((await tiedTracksFor(userId)).length > 1) return null;
   let best = done[0]!;
   for (const d of done) if ((d!.score ?? 0) > (best.score ?? 0)) best = d!;
   return best.track;
@@ -77,6 +89,7 @@ studentRouter.get("/state", async (req, res) => {
     assessments: assessmentView,
     allAssessmentsDone: allDone,
     officialTrack,
+    tiedTracks: allDone && !profile.officialTrack ? await tiedTracksFor(userId) : [],
     officialScore: officialRow?.score ?? null,
     passed,
     passMark: LIMITS.passMark,
@@ -166,8 +179,24 @@ studentRouter.post("/assessments/:track/submit", async (req, res) => {
   await db.insert(assessmentAttempts).values({ userId, track, score, passed });
   const official = await resolveOfficialTrack(userId);
   // The review confirmation is consumed once every assessment has a result again.
-  if (official) await db.update(studentProfiles).set({ officialTrack: official, reviewConfirmedAt: null, updatedAt: new Date() }).where(eq(studentProfiles.userId, userId));
+  const profileNow = await getProfile(userId);
+  const allDoneNow = profileNow.selectedTracks.length > 0 && (await db.select().from(assessments).where(eq(assessments.userId, userId)))
+    .filter((r) => profileNow.selectedTracks.includes(r.track) && r.completedAt).length === profileNow.selectedTracks.length;
+  // On a tie `official` is null, which clears the old choice so the student is asked again.
+  if (allDoneNow) await db.update(studentProfiles).set({ officialTrack: official, reviewConfirmedAt: null, updatedAt: new Date() }).where(eq(studentProfiles.userId, userId));
   res.json({ score, total: bank.length, passed, passMark: LIMITS.passMark, late });
+});
+
+// Tie-break: the student picks which of the equally-scored skills becomes their primary track.
+studentRouter.post("/primary-track", async (req, res) => {
+  const body = z.object({ track: z.string() }).safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: "Choose a skill." });
+  const userId = req.user!.id;
+  const tied = await tiedTracksFor(userId);
+  if (tied.length < 2) return res.status(409).json({ error: "There is no tie to resolve." });
+  if (!tied.includes(body.data.track)) return res.status(400).json({ error: "Choose one of the tied skills." });
+  await db.update(studentProfiles).set({ officialTrack: body.data.track, updatedAt: new Date() }).where(eq(studentProfiles.userId, userId));
+  res.json({ ok: true });
 });
 
 // Skill-based retake: confirm review of the recommended materials, then reset the failed assessment.

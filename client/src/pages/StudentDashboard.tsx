@@ -10,6 +10,7 @@ interface State {
   assessments: { track: string; status: string; score: number | null; passed: boolean | null; attempts: number; questionSet: string; canRetake: boolean }[];
   allAssessmentsDone: boolean;
   officialTrack: string | null;
+  tiedTracks: string[];
   officialScore: number | null;
   passed: boolean;
   passMark: number;
@@ -51,6 +52,13 @@ export default function StudentDashboard() {
     setError("");
     try { await api("/student/review-confirm", { body: {} }); await load(); }
     catch (e) { setError((e as Error).message); }
+  }
+
+  async function choosePrimary(track: string) {
+    setError("");
+    setBusy(true);
+    try { await api("/student/primary-track", { body: { track } }); await load(); }
+    catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }
 
   async function retake(track: string) {
@@ -118,7 +126,18 @@ export default function StudentDashboard() {
             )}
           </div>
         ))}
-        {s.allAssessmentsDone && (
+        {s.allAssessmentsDone && s.tiedTracks.length > 1 && (
+          <div className="tie-card" style={{ marginTop: 16 }}>
+            <h3>You scored equally well in both!</h3>
+            <p>Which path would you like to continue with for your interview?</p>
+            <div className="tie-options">
+              {s.tiedTracks.map((t) => (
+                <button key={t} disabled={busy} onClick={() => choosePrimary(t)}>{t}</button>
+              ))}
+            </div>
+          </div>
+        )}
+        {s.allAssessmentsDone && s.tiedTracks.length <= 1 && (
           <div style={{ marginTop: 16 }}>
             <p className="muted">Pass mark: {s.passMark}/10. The higher score becomes your official skill (ties go to the one you listed first).</p>
             <div className={`score ${s.passed ? "" : "fail"}`}>{s.officialScore}/10 · {s.officialTrack}</div>
