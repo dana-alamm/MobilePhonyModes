@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "N-h9lKXFJbEkSMdHM4oi2"
+uri = "file://presentation/mish-senior-pitch.html"
+type = "html"
+title = "Mish Senior pitch deck"
+description = "8 slides matching the reference: Problem, Impact, Solution, Demo (empty), Market, Business, Team, The Ask."
+logical_id = "46493c54-876e-4027-8f14-76f26d759335"
+content_hash = "sha256:3217aeb9b7780157f36e554e65cadc56c688c927a1edf4b5df187f05f37c73fe"
+size = 9283
+mtime_ms = 1791710790055
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:5610b5e4-3289-4fa9-b23d-6b914875cc1e/46493c54-876e-4027-8f14-76f26d759335/494d07e1-0893-4218-80c4-1e8e9ada9cd2"
+storage_version_token = "1791710795098155"
+content_type = "text/html"
