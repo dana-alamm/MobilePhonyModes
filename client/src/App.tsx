@@ -37,16 +37,7 @@ export default function App() {
   const onAuth = useCallback((u: SessionUser) => {
     clearClientState();
     setUser(u);
-    navigate(u.role === "student" ? "/student" : u.subscriptionStatus === "active" ? "/company" : "/company/pricing", { replace: true });
-  }, [navigate]);
-
-  // Opening login or signup while signed in ends the old session first, so nothing carries over.
-  const onAuthPage = location.pathname === "/login" || location.pathname.startsWith("/signup/");
-  useEffect(() => {
-    if (user && onAuthPage) {
-      api("/auth/logout", { method: "POST", body: {} }).catch(() => {}).finally(() => { clearClientState(); setUser(null); });
-    }
-  }, [user, onAuthPage]);
+  }, []);
 
   if (user === undefined) return <div className="container muted">Loading…</div>;
 
@@ -77,8 +68,8 @@ export default function App() {
   return (
     <Routes key={user?.id ?? "anon"}>
       <Route path="/" element={<Welcome home={user ? home : undefined} />} />
-      <Route path="/login" element={user ? null : <Auth mode="login" onAuth={onAuth} />} />
-      <Route path="/signup/:role" element={user ? null : <Auth mode="signup" onAuth={onAuth} />} />
+      <Route path="/login" element={user ? <Navigate to={home} replace /> : <Auth mode="login" onAuth={onAuth} />} />
+      <Route path="/signup/:role" element={user ? <Navigate to={home} replace /> : <Auth mode="signup" onAuth={onAuth} />} />
       <Route path="/student" element={shell(<StudentDashboard />, "student")} />
       <Route path="/student/messages" element={shell(<Messages />, "student")} />
       <Route path="/student/messages/:inviteId" element={shell(<Messages />, "student")} />
