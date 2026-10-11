@@ -1,9 +1,11 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { api } from "../api";
 
+const MAX_SKILLS = 2;
+
 interface Group { group: string; skills: string[] }
 
-// Searchable combobox with autocomplete. Suggestions come from the skill list; any number can be added.
+// Searchable combobox with autocomplete. Suggestions come from the skill list. At most two skills; picking a third replaces the oldest.
 export default function SkillCombobox({ selected, onChange }: {
   selected: string[]; onChange: (v: string[]) => void;
 }) {
@@ -32,7 +34,7 @@ export default function SkillCombobox({ selected, onChange }: {
 
   function pick(s: string) {
     if (selected.includes(s)) return;
-    onChange([...selected, s]);
+    onChange([...selected, s].slice(-MAX_SKILLS));
     setText("");
     setActive(0);
     setOpen(false);

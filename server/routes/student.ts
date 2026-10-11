@@ -103,7 +103,7 @@ studentRouter.get("/state", async (req, res) => {
 studentRouter.put("/tracks", async (req, res) => {
   const body = z.object({ tracks: z.array(z.string()) }).safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: "Invalid skills." });
-  const tracks = [...new Set(body.data.tracks)];
+  const tracks = [...new Set(body.data.tracks)].slice(-2);
   if (!tracks.every(isTrack)) return res.status(400).json({ error: "Choose skills from the list." });
   const userId = req.user!.id;
   await getProfile(userId);
