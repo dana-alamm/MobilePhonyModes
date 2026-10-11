@@ -88,6 +88,7 @@ export default function SkillCombobox({ selected, onChange }: {
           </ul>
         )}
       </div>
+      <p className="fine" style={{ marginTop: 8 }}>You can select up to 2 skills. Remove one to change.</p>
     </div>
   );
 }
