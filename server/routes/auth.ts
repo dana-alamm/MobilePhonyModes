@@ -54,7 +54,7 @@ authRouter.post("/register", async (req, res) => {
 
   let skills: string[] = [];
   if (d.role === "student") {
-    skills = [...new Set(d.skills ?? [])].filter(isSkill).slice(-2);
+    skills = [...new Set(d.skills ?? [])].filter(isSkill).slice(0, 2);
   }
   const [taken] = await db.select({ id: users.id }).from(users).where(eq(users.email, d.email));
   if (taken) return res.status(409).json({ error: "An account with this email already exists. Try signing in." });

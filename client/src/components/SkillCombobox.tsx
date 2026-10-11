@@ -5,7 +5,7 @@ const MAX_SKILLS = 2;
 
 interface Group { group: string; skills: string[] }
 
-// Searchable combobox with autocomplete. Suggestions come from the skill list. At most two skills; picking a third replaces the oldest.
+// Searchable combobox with autocomplete. Suggestions come from the skill list. At most two skills; the input is disabled once two are chosen. Remove one to change it.
 export default function SkillCombobox({ selected, onChange }: {
   selected: string[]; onChange: (v: string[]) => void;
 }) {
@@ -26,6 +26,7 @@ export default function SkillCombobox({ selected, onChange }: {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
+  const full = selected.length >= MAX_SKILLS;
   const options = useMemo(() => {
     const needle = text.trim().toLowerCase();
     return groups.flatMap((g) =>
@@ -33,8 +34,8 @@ export default function SkillCombobox({ selected, onChange }: {
   }, [groups, text, selected]);
 
   function pick(s: string) {
-    if (selected.includes(s)) return;
-    onChange([...selected, s].slice(-MAX_SKILLS));
+    if (full || selected.includes(s)) return;
+    onChange([...selected, s]);
     setText("");
     setActive(0);
     setOpen(false);
@@ -65,11 +66,11 @@ export default function SkillCombobox({ selected, onChange }: {
         <input
           role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list"
           aria-label="Search specializations" placeholder="Search skills, e.g. Flutter, UI, Data…"
-          value={text}
+          value={text} disabled={full}
           onChange={(e) => { setText(e.target.value); setOpen(true); setActive(0); }}
           onFocus={() => setOpen(true)} onKeyDown={onKey}
         />
-        {open && (
+        {open && !full && (
           <ul id={listId} role="listbox" className="combo-list">
             {loadError && <li className="combo-empty">{loadError}</li>}
             {!loadError && options.length === 0 && <li className="combo-empty">No matching skill.</li>}
