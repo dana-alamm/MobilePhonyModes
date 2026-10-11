@@ -130,12 +130,18 @@ export default function StudentDashboard() {
                   You scored below {s.passMark}/10, so interviews stay locked for now. This is only a snapshot of today's knowledge. Review these areas and keep building your skills.
                 </div>
                 <h3>Suggested learning (links to Udemy topic pages; nothing is purchased or unlocked here)</h3>
-                {s.recommendations.map((r) => (
-                  <div key={r.title} style={{ marginBottom: 10 }}>
-                    <a href={r.url} target="_blank" rel="noreferrer">{r.title}</a>
-                    <div className="muted">Review: {r.topics.join(" · ")}</div>
-                  </div>
-                ))}
+                <div className="resources">
+                  {s.recommendations.map((r) => (
+                    <a key={r.title} className="resource" href={r.url} target="_blank" rel="noreferrer">
+                      <span className="resource-icon" aria-hidden="true">▶</span>
+                      <span className="resource-body">
+                        <strong className="resource-title">{r.title}</strong>
+                        <span className="resource-topics">Review: {r.topics.join(" · ")}</span>
+                      </span>
+                      <span className="resource-cta">Open course ↗</span>
+                    </a>
+                  ))}
+                </div>
                 <label className="check">
                   <input type="checkbox" checked={s.reviewConfirmed} disabled={s.reviewConfirmed} onChange={(e) => confirmReview(e.target.checked)} />
                   I confirm I have reviewed the recommended materials.
