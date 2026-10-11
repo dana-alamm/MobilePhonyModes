@@ -14,3 +14,17 @@ mtime_ms = 1791710790055
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:5610b5e4-3289-4fa9-b23d-6b914875cc1e/46493c54-876e-4027-8f14-76f26d759335/494d07e1-0893-4218-80c4-1e8e9ada9cd2"
 storage_version_token = "1791710795098155"
 content_type = "text/html"
+
+[[outputs]]
+id = "S_T112yqm4SlzqwsMkEmR"
+uri = "file://presentation/Mish-Senior-Pitch.pptx"
+type = "slides"
+title = "Mish Senior pitch (PowerPoint)"
+description = "8 editable slides: Problem, Impact, Solution, Demo (empty), Market, Business, Team, The Ask."
+logical_id = "0b47eba6-bb77-4cbb-8df0-64585e1e8bc1"
+content_hash = "sha256:6c282286ae3c35b0ebc8d48a5659b2203bc596589fd431c061a00dd1aec46eaa"
+size = 229466
+mtime_ms = 1791710863266
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:5610b5e4-3289-4fa9-b23d-6b914875cc1e/0b47eba6-bb77-4cbb-8df0-64585e1e8bc1/4833a11a-cd18-4dad-a5c7-7f9026c5e10f"
+storage_version_token = "1791710866466311"
+content_type = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
