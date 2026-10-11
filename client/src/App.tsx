@@ -1,7 +1,7 @@
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import { api, type SessionUser } from "./api";
+import { api, clearClientState, type SessionUser } from "./api";
 import CompanyBell from "./components/CompanyBell";
 import NotificationBell from "./components/NotificationBell";
 import CompanyMessages from "./pages/CompanyMessages";
@@ -26,10 +26,27 @@ export default function App() {
   }, []);
 
   const logout = useCallback(async () => {
-    await api("/auth/logout", { method: "POST", body: {} });
-    setUser(null);
+    try { await api("/auth/logout", { method: "POST", body: {} }); } finally {
+      clearClientState();
+      setUser(null);
+    }
     navigate("/");
   }, [navigate]);
+
+  // A new session always starts clean: clear stored state before the new account is shown.
+  const onAuth = useCallback((u: SessionUser) => {
+    clearClientState();
+    setUser(u);
+    navigate(u.role === "student" ? "/student" : u.subscriptionStatus === "active" ? "/company" : "/company/pricing", { replace: true });
+  }, [navigate]);
+
+  // Opening login or signup while signed in ends the old session first, so nothing carries over.
+  const onAuthPage = location.pathname === "/login" || location.pathname.startsWith("/signup/");
+  useEffect(() => {
+    if (user && onAuthPage) {
+      api("/auth/logout", { method: "POST", body: {} }).catch(() => {}).finally(() => { clearClientState(); setUser(null); });
+    }
+  }, [user, onAuthPage]);
 
   if (user === undefined) return <div className="container muted">Loading…</div>;
 
@@ -58,10 +75,10 @@ export default function App() {
     );
 
   return (
-    <Routes>
+    <Routes key={user?.id ?? "anon"}>
       <Route path="/" element={<Welcome home={user ? home : undefined} />} />
-      <Route path="/login" element={user ? <Navigate to={home} replace /> : <Auth mode="login" onAuth={setUser} />} />
-      <Route path="/signup/:role" element={user ? <Navigate to={home} replace /> : <Auth mode="signup" onAuth={setUser} />} />
+      <Route path="/login" element={user ? null : <Auth mode="login" onAuth={onAuth} />} />
+      <Route path="/signup/:role" element={user ? null : <Auth mode="signup" onAuth={onAuth} />} />
       <Route path="/student" element={shell(<StudentDashboard />, "student")} />
       <Route path="/student/messages" element={shell(<Messages />, "student")} />
       <Route path="/student/messages/:inviteId" element={shell(<Messages />, "student")} />

@@ -23,7 +23,7 @@ export function setSession(res: Response, userId: number) {
 }
 
 export function clearSession(res: Response) {
-  res.clearCookie(COOKIE);
+  res.clearCookie(COOKIE, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
 }
 
 function readCookie(req: Request, name: string): string | undefined {

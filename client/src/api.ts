@@ -33,3 +33,9 @@ export interface SessionUser {
   subscriptionStatus: "none" | "active";
   subscriptionPlan: string | null;
 }
+
+// Wipes everything the browser keeps for this site so one account never sees another's state.
+export function clearClientState() {
+  try { localStorage.clear(); sessionStorage.clear(); } catch { /* storage unavailable */ }
+  if ("caches" in window) caches.keys().then((ks) => ks.forEach((k) => caches.delete(k))).catch(() => {});
+}
