@@ -3,9 +3,9 @@ import { api } from "../api";
 
 interface Group { group: string; skills: string[] }
 
-// Searchable combobox. Only skills from the predefined list can be selected; free text is never committed.
-export default function SkillCombobox({ selected, onChange, max = 2, disabled = false }: {
-  selected: string[]; onChange: (v: string[]) => void; max?: number; disabled?: boolean;
+// Searchable combobox with autocomplete. Suggestions come from the skill list; any number can be added.
+export default function SkillCombobox({ selected, onChange }: {
+  selected: string[]; onChange: (v: string[]) => void;
 }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [text, setText] = useState("");
@@ -24,7 +24,6 @@ export default function SkillCombobox({ selected, onChange, max = 2, disabled = 
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const full = selected.length >= max;
   const options = useMemo(() => {
     const needle = text.trim().toLowerCase();
     return groups.flatMap((g) =>
@@ -32,7 +31,7 @@ export default function SkillCombobox({ selected, onChange, max = 2, disabled = 
   }, [groups, text, selected]);
 
   function pick(s: string) {
-    if (full || selected.includes(s)) return;
+    if (selected.includes(s)) return;
     onChange([...selected, s]);
     setText("");
     setActive(0);
@@ -55,24 +54,23 @@ export default function SkillCombobox({ selected, onChange, max = 2, disabled = 
           {selected.map((s) => (
             <span key={s} className="chip">
               {s}
-              {!disabled && <button type="button" aria-label={`Remove ${s}`} onClick={() => onChange(selected.filter((x) => x !== s))}>×</button>}
+              <button type="button" aria-label={`Remove ${s}`} onClick={() => onChange(selected.filter((x) => x !== s))}>×</button>
             </span>
           ))}
         </div>
-        <span className="fine">{selected.length} of {max} selected</span>
       </div>
       <div className="combo">
         <input
           role="combobox" aria-expanded={open} aria-controls={listId} aria-autocomplete="list"
           aria-label="Search specializations" placeholder="Search skills, e.g. Flutter, UI, Data…"
-          value={text} disabled={disabled || full}
+          value={text}
           onChange={(e) => { setText(e.target.value); setOpen(true); setActive(0); }}
           onFocus={() => setOpen(true)} onKeyDown={onKey}
         />
-        {open && !full && !disabled && (
+        {open && (
           <ul id={listId} role="listbox" className="combo-list">
             {loadError && <li className="combo-empty">{loadError}</li>}
-            {!loadError && options.length === 0 && <li className="combo-empty">No matching skill. Choose from the list.</li>}
+            {!loadError && options.length === 0 && <li className="combo-empty">No matching skill.</li>}
             {options.map((o, i) => {
               const header = o.group !== lastGroup ? <li key={`g-${o.group}`} className="combo-group" role="presentation">{o.group}</li> : null;
               lastGroup = o.group;

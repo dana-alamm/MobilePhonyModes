@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
+import SkillCombobox from "../components/SkillCombobox";
 
 interface State {
   selectedTracks: string[];
@@ -26,6 +27,7 @@ const statusBadge = (s: string) =>
 export default function StudentDashboard() {
   const [s, setS] = useState<State | null>(null);
   const [error, setError] = useState("");
+  const [picked, setPicked] = useState<string[]>([]);
   const [payOpen, setPayOpen] = useState(false);
   const [payMsg, setPayMsg] = useState("");
   const [payKey, setPayKey] = useState(() => crypto.randomUUID());
@@ -35,6 +37,7 @@ export default function StudentDashboard() {
   const load = useCallback(async () => {
     const st = await api<State>("/student/state");
     setS(st);
+    setPicked(st.selectedTracks);
   }, []);
   useEffect(() => { load().catch((e) => setError(e.message)); }, [load]);
 
@@ -75,12 +78,30 @@ export default function StudentDashboard() {
   const hrDone = hr.status !== "not_started" && hr.status !== "in_progress";
   const unlocked = s.allAssessmentsDone && s.passed;
 
+  async function saveSkills() {
+    setError("");
+    setBusy(true);
+    try {
+      await api("/student/tracks", { method: "PUT", body: { tracks: picked } });
+      await load();
+    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
+  }
+
   return (
     <>
       {error && <div className="notice error">{error}</div>}
 
+      <section className="card active">
+        <h2>Choose your specialization</h2>
+        <SkillCombobox selected={picked} onChange={setPicked} />
+        <div style={{ marginTop: 12 }}>
+          <button disabled={busy || JSON.stringify(picked) === JSON.stringify(s.selectedTracks)} onClick={saveSkills}>Save specialization</button>
+        </div>
+      </section>
+
       <section className={`card ${s.selectedTracks.length && !s.allAssessmentsDone ? "active" : ""} ${!s.selectedTracks.length ? "locked" : ""}`}>
         <h2><span className="step">01</span>Assessments (text only, 10 questions, 15 min each)</h2>
+        {!s.selectedTracks.length && <p className="muted">Choose and save your specialization above to see your assessments.</p>}
         {s.assessments.map((a) => (
           <div key={a.track} className="row between" style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
             <div>

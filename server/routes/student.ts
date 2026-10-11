@@ -3,7 +3,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, assessmentAttempts, assessments, invites, messages, officialInterviews, payments, practiceSessions, studentProfiles, users } from "../db.js";
 import {
-  DEFAULT_SKILL, HR_PRACTICE, LIMITS, SKILL_GROUPS, assessmentFor, bankOf, isSkill, recommendationsFor, techPracticeFor,
+  HR_PRACTICE, LIMITS, SKILL_GROUPS, assessmentFor, bankOf, isSkill, recommendationsFor, techPracticeFor,
 } from "../content.js";
 import { requireRole } from "../auth.js";
 import { threadFor } from "../chat.js";
@@ -15,12 +15,8 @@ const isTrack = isSkill;
 
 export async function getProfile(userId: number) {
   const [p] = await db.select().from(studentProfiles).where(eq(studentProfiles.userId, userId));
-  if (p) {
-    if (p.selectedTracks.length > 0) return p;
-    const [fixed] = await db.update(studentProfiles).set({ selectedTracks: [DEFAULT_SKILL], updatedAt: new Date() }).where(eq(studentProfiles.userId, userId)).returning();
-    return fixed;
-  }
-  const [created] = await db.insert(studentProfiles).values({ userId, selectedTracks: [DEFAULT_SKILL] }).returning();
+  if (p) return p;
+  const [created] = await db.insert(studentProfiles).values({ userId, selectedTracks: [] }).returning();
   return created;
 }
 
@@ -105,17 +101,15 @@ studentRouter.get("/state", async (req, res) => {
 });
 
 studentRouter.put("/tracks", async (req, res) => {
-  const body = z.object({ tracks: z.array(z.string()).min(1).max(2) }).safeParse(req.body);
-  if (!body.success) return res.status(400).json({ error: "Choose one or two skills." });
+  const body = z.object({ tracks: z.array(z.string()) }).safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: "Invalid skills." });
   const tracks = [...new Set(body.data.tracks)];
   if (!tracks.every(isTrack)) return res.status(400).json({ error: "Choose skills from the list." });
   const userId = req.user!.id;
-  const existing = await db.select().from(assessments).where(eq(assessments.userId, userId));
-  if (existing.length > 0) {
-    return res.status(409).json({ error: "Skills are locked once an assessment has been started." });
-  }
   await getProfile(userId);
-  await db.update(studentProfiles).set({ selectedTracks: tracks, officialTrack: null, updatedAt: new Date() }).where(eq(studentProfiles.userId, userId));
+  await db.update(studentProfiles).set({ selectedTracks: tracks, updatedAt: new Date() }).where(eq(studentProfiles.userId, userId));
+  // Keep the official skill consistent with the new selection.
+  await db.update(studentProfiles).set({ officialTrack: await resolveOfficialTrack(userId) }).where(eq(studentProfiles.userId, userId));
   res.json({ ok: true });
 });
 

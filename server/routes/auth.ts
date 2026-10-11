@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db, users, studentProfiles } from "../db.js";
 import { clearSession, setSession } from "../auth.js";
-import { DEFAULT_SKILL, isSkill } from "../content.js";
+import { isSkill } from "../content.js";
 
 export const authRouter = Router();
 
@@ -47,17 +47,14 @@ authRouter.post("/register", async (req, res) => {
     name: z.string().trim().min(2, "Enter a name (at least 2 characters).").max(80),
     email,
     password: z.string().min(8, "Use at least 8 characters for your password.").max(100),
-    skills: z.array(z.string()).max(2).optional(),
+    skills: z.array(z.string()).optional(),
   }).safeParse(req.body);
   if (!body.success) return res.status(400).json({ error: body.error.issues[0]?.message ?? "Invalid details." });
   const d = body.data;
 
   let skills: string[] = [];
   if (d.role === "student") {
-    skills = [...new Set(d.skills?.length ? d.skills : [DEFAULT_SKILL])];
-    if (skills.length < 1 || skills.length > 2 || !skills.every(isSkill)) {
-      return res.status(400).json({ error: "Choose one or two specializations from the list." });
-    }
+    skills = [...new Set(d.skills ?? [])].filter(isSkill);
   }
   const [taken] = await db.select({ id: users.id }).from(users).where(eq(users.email, d.email));
   if (taken) return res.status(409).json({ error: "An account with this email already exists. Try signing in." });

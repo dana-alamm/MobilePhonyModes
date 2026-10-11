@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, type SessionUser } from "../api";
 import PasswordInput from "../components/PasswordInput";
+import SkillCombobox from "../components/SkillCombobox";
 
 export default function Auth({ mode, onAuth }: { mode: "login" | "signup"; onAuth: (u: SessionUser) => void }) {
   const role = useParams().role === "company" ? "company" : "student";
@@ -10,6 +11,7 @@ export default function Auth({ mode, onAuth }: { mode: "login" | "signup"; onAut
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [skills, setSkills] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const signup = mode === "signup";
@@ -25,7 +27,7 @@ export default function Auth({ mode, onAuth }: { mode: "login" | "signup"; onAut
     setBusy(true);
     try {
       const r = signup
-        ? await api<{ user: SessionUser }>("/auth/register", { body: { role, name, email, password } })
+        ? await api<{ user: SessionUser }>("/auth/register", { body: { role, name, email, password, ...(role === "student" ? { skills } : {}) } })
         : await api<{ user: SessionUser }>("/auth/login", { body: { email, password } });
       onAuth(r.user);
       navigate(r.user.role === "student" ? "/student" : r.user.subscriptionStatus === "active" ? "/company" : "/company/pricing", { replace: true });
@@ -80,6 +82,12 @@ export default function Auth({ mode, onAuth }: { mode: "login" | "signup"; onAut
         )}
 
         {signup && <p className="fine">Use at least 8 characters for your password.</p>}
+        {signup && role === "student" && (
+          <div className="field">
+            <label>Choose your specialization</label>
+            <SkillCombobox selected={skills} onChange={setSkills} />
+          </div>
+        )}
         <button type="submit" className="full" disabled={busy}>
           {busy ? "Please wait…" : signup ? `→ Create ${noun} account` : "→ Sign in"}
         </button>
